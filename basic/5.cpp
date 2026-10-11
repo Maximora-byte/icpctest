@@ -1,14 +1,47 @@
-#include <iostream>
+#include<stdio.h>
 
-using namespace std;
+ 
 
 int main()
+
 {
-    int x = 5;
 
-    cout << x;
+   int i,j,k;
 
-    cout << "x";
+  
 
-    return 0;
+   i = 7;
+
+   j = 8;
+
+   i*=j+1;
+
+   printf("i=%d,j=%d\n",i,j);
+
+  
+
+   i=j=k=1;
+
+   i+=j+=k;
+
+   printf("i=%d,j=%d,k=%d\n",i,j,k);
+
+  
+
+   i=1; j=2; k=3;
+
+   i-=j-=k;
+
+   printf("i=%d,j=%d,k=%d\n",i,j,k);
+
+  
+
+   i=2; j=1; k=0;
+
+   i*=j*=k;
+
+   printf("i=%d,j=%d,k=%d\n",i,j,k);
+
+   return 0;
+
 }
