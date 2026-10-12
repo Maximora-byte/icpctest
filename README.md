@@ -18,6 +18,8 @@
 
 复习时可阅读 [分类习题总目录](docs/exercises/README.md)：按知识点进入独立题目页，附稳定编号、折叠答案、易错点与拓展练习。
 
+刚开始接触标准库，可阅读 [STD.md：C++ 标准库入门](STD.md)，从 `vector`、排序、去重和整行输入学起，每个完整示例都附输入输出。
+
 ## 练习索引
 
 | 文件 | 练习内容 | 当前输出 |
@@ -81,6 +83,7 @@ icpctest/
 │   ├── print_price.cpp
 │   └── compound_assignment.cpp
 ├── docs/exercises/         # 分类目录、独立题目与新增题目模板
+├── STD.md                  # 标准库入门、完整示例与常见易错点
 ├── .github/                # 现有协作配置与说明
 ├── .gitignore              # 编译产物、缓存及编辑器文件忽略规则
 ├── LICENSE                 # MIT 许可
@@ -92,3 +95,4 @@ icpctest/
 ## 许可
 
 本仓库采用 [MIT License](LICENSE)，版权署名为 Maximora-byte。
+
