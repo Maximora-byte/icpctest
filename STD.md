@@ -23,6 +23,8 @@
 4. [stringstream：把一行拆成单词或数字](#stringstream)
 5. [cin 后接 getline：为什么会读到空行](#mixed-input)
    - [把四步串起来：读整行、转小写、拆单词、比较计数](#word-count)
+   - [char& 为什么能改原字符：联系引用和指针](#char-reference)
+   - [四种字符串模板：需要原位置时手动扫描](#string-templates)
 6. [六种原始写法速查与易错点](#recap)
 
 ### 按需选读
@@ -63,7 +65,7 @@
 | `sort`、`unique`、二分相关函数 | `<algorithm>` | 常用算法工具 |
 | `set` | `<set>` | 不重复、默认从小到大排列的集合 |
 | `string`、字符串版本的 `getline` | `<string>` | 文本和整行读取 |
-| `tolower` | `<cctype>` | 把单个英文字母转成小写 |
+| `tolower`、`toupper` | `<cctype>` | 把单个英文字母转成小写 / 大写 |
 | `stringstream` | `<sstream>` | 把已有字符串当作输入来读 |
 | `numeric_limits` | `<limits>` | 查询类型的数值范围，本文用来清理一行输入 |
 | `accumulate` | `<numeric>` | 从一个初始值开始累加 |
@@ -739,6 +741,282 @@ hello  HELLO world helloworld Hello
 处理过程：目标词先变成 `hello`；第二行拆出 `hello`、`hello`、`world`、`helloworld`、`hello`，其中 3 个与目标词完全相等。若第二行是空行、全是空格，或者没有匹配词，都会输出 `0`；如果缺少第二行，则读取失败，直接结束。
 
 这是一份演示四步如何配合的计数程序。遇到[洛谷 P1308](https://www.luogu.com.cn/problem/P1308) 等具体题目，还要按题面补上首次出现位置、未找到时的输出等要求；不要把这份示例直接当作完整题解提交。
+
+<a id="char-reference"></a>
+### char& 为什么能改原字符：联系引用和指针
+
+**记住一句话：字符串循环里的 `char& c`，就是为了直接修改原来的字符。** `char &c` 和 `char& c` 只是空格位置不同，含义一样。
+
+#### 先分清副本、引用、指针
+
+**片段：** 先有一个普通整数，再分别建立副本、引用和指针。
+
+```cpp
+int value = 10;
+int copy = value;      // 复制一份值，copy 和 value 是两个变量
+int& alias = value;   // alias 是 value 的另一个名字
+int* p = &value;      // p 保存 value 的地址
+```
+
+- `copy = 20;`：只改副本，不改 `value`。
+- `alias = 20;`：通过别名修改 `value`，不用写 `*alias`。
+- `*p = 20;`：通过指针找到它指向的整数，再修改那个整数；这里改的也是 `value`。这个 `*p` 操作叫**解引用**。
+
+同一个 `&`，要看出现在哪里：
+
+- `int& alias = value;` 的 `&` 在**声明类型处**，表示 `alias` 是引用。
+- `int* p = &value;` 的 `&value` 在**表达式里**，表示取出 `value` 的地址。
+- 声明里的 `int*` 表示“指向 int 的指针”；之后表达式里的 `*p` 才表示访问它指向的整数。
+
+引用和指针有关联，但不要混成同一种写法：
+
+| 比较什么 | 引用 `int& alias = value;` | 指针 `int* p = &value;` |
+| --- | --- | --- |
+| 初学时怎么理解 | 原对象的别名 | 保存对象地址的变量 |
+| 怎样修改原对象 | `alias = 20;` | `*p = 20;` |
+| 能否换目标 | 初始化后不能重新绑定别的对象 | 可以用 `p = &other;` 改为指向另一个有效对象 |
+| 能否表示“没有目标” | 正常使用时必须绑定有效对象，没有 `nullptr` 这种引用状态 | 可以设为 `nullptr`，但此时不能解引用 |
+
+局部引用不能只写 `int& alias;` 就放着，声明时要初始化，例如 `int& alias = value;`。指针也不要先写一个未初始化的 `int* p;` 就拿去用：先写 `int* p = &value;`，或用 `int* p = nullptr;` 表示暂时没有目标。`p != nullptr` 只是在排除空指针；真正解引用时，还要确认它指向的对象仍然有效。
+
+这些是 C++ 的使用规则。学到这里，不需要猜测“编译器一定怎样存引用”，也不要把引用当作可以随意重新指向的指针。
+
+### 完整示例 5B：通过别名和指针修改整数
+
+```cpp
+#include <iostream>
+using namespace std;
+
+int main() {
+    int value = 10;
+    int other = 40;
+    int& alias = value;
+    int* p = &value;
+
+    alias = 20;
+    cout << "value: " << value << '\n';
+    *p = 30;
+    cout << "alias: " << alias << '\n';
+
+    p = &other;
+    *p = 50;
+    cout << "value / other: " << value << ' ' << other << '\n';
+
+    alias = other;  // 把 other 的值赋给 value，不是让 alias 换目标
+    other = 60;
+    cout << "alias / other: " << alias << ' ' << other << '\n';
+
+    p = nullptr;
+    if (p == nullptr) {
+        cout << "p is null\n";  // 此时不能使用 *p
+    }
+    return 0;
+}
+```
+
+**输入**：无需输入。
+
+**输出**：
+
+```text
+value: 20
+alias: 30
+value / other: 30 50
+alias / other: 50 60
+p is null
+```
+
+前两次修改都作用于 `value`。`p = &other` 之后，`*p` 改的是 `other`，所以 `value` 仍是 `30`。`alias = other` 则把数值 `50` 赋给 `value`；后来 `other` 变成 `60`，`alias` 仍代表 `value`，读到的还是 `50`。
+
+#### 套回字符串：副本和原字符的区别
+
+看到“修改字符串里的每个字符”，就想到 `for (char& c : s)`：`s` 是一个已经声明的 `string`，每一轮的 `c` 都是当前原字符的别名。循环进入下一轮时，会为下一个字符建立这一轮的引用；这不等于对同一个引用重新绑定。
+
+通用思路是：**遍历一个字符 → 算出新字符 → 赋回 `c`**。若笔记写成 `c = xxx(c)`，`xxx` 只是“你要做的转换”的占位名，不是 C++ 内置函数。实际代码要换成已经定义的函数，例如 `<cctype>` 里的 `tolower` 或 `toupper`。
+
+| 想做什么 | 循环体中的安全写法 |
+| --- | --- |
+| 转成小写 | `c = static_cast<char>(tolower(static_cast<unsigned char>(c)));` |
+| 转成大写 | `c = static_cast<char>(toupper(static_cast<unsigned char>(c)));` |
+
+两种转换都先把输入转成 `unsigned char`，把结果转回 `char`，最后赋回 `c`。只调用 `tolower(c)` 或 `toupper(c)` 而不保存返回值，不会自动修改 `c`。转换规则依赖当前 C locale；下面没有改变默认规则，主要用于英文字母，不能把逐字节转换当作通用 Unicode 处理。空格、数字和常见标点在本例中保持不变。
+
+### 完整示例 5C：同一字符串，对比复制与原地修改
+
+先用 `char c` 转小写并输出副本，再查看原字符串；然后用 `char& c` 真正修改原字符，最后转大写。
+
+```cpp
+#include <cctype>
+#include <iostream>
+#include <string>
+using namespace std;
+
+int main() {
+    string text;
+    if (!getline(cin, text)) {
+        return 0;
+    }
+
+    cout << "copy loop output: [";
+    for (char c : text) {
+        c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+        cout << c;
+    }
+    cout << "]\n";
+    cout << "text after copy: [" << text << "]\n";
+
+    for (char& c : text) {
+        c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+    }
+    cout << "text after reference: [" << text << "]\n";
+
+    for (char& c : text) {
+        c = static_cast<char>(toupper(static_cast<unsigned char>(c)));
+    }
+    cout << "text after uppercase: [" << text << "]\n";
+    return 0;
+}
+```
+
+**输入**：
+
+```text
+HeLLo ICPC!
+```
+
+**输出**：
+
+```text
+copy loop output: [hello icpc!]
+text after copy: [HeLLo ICPC!]
+text after reference: [hello icpc!]
+text after uppercase: [HELLO ICPC!]
+```
+
+第一行虽然输出了小写，但修改的是每轮的副本，所以第二行的 `text` 仍保持原样。后面两次使用 `char&`，才真正把 `text` 改成小写、再改成大写。输入空行时，三个循环都不执行，四行方括号内都为空；没有任何输入时直接结束。
+
+<a id="string-templates"></a>
+### 四种字符串模板：先看题目要你做什么
+
+这些模板里的 `s` 都是已经声明并读入内容的 `string`，不是新的特殊类型。需要哪一种就选哪一种，不必每题都写四遍。
+
+| 需求 | 选择的写法 | 详细解释 |
+| --- | --- | --- |
+| 1. 逐个检查字符 | 需要下标就用 `s[i]`；不需要下标就用 `for (char c : s)` | [下标范围](#getline)、[副本和引用](#char-reference) |
+| 2. 修改原字符串中的字符 | `for (char& c : s)`，算出新字符后赋回 `c` | [转小写、转大写及对照示例](#char-reference) |
+| 3. 简单拆成单词 | `stringstream ss(s); string word;`，再用 `while (ss >> word)` | [拆词规则](#stringstream)、[完整四步示例](#word-count) |
+| 4. 拆词时还要原字符串里的位置 | 用下标 `i` 手动扫描，记住 `start`，再 `substr(start, i - start)` | 见下面的扫描示例 |
+
+#### 模板 1：检查字符，需要位置就保留下标
+
+**片段：** `s` 已读好；下面逐行输出每个字符的下标和字符本身，需 `<string>`、`<iostream>`。
+
+```cpp
+for (string::size_type i = 0; i < s.size(); ++i) {
+    cout << i << ": [" << s[i] << "]\n";
+}
+```
+
+`string::size_type` 与 `size()` 的结果类型一致，可以避免直接拿 `int` 和无符号长度比较的警告。条件必须是 `i < s.size()`。只写一行 `s[i];` 并不会输出、比较或修改它；要像上面这样真正使用这个字符。
+
+如果只想看看字符、判断它是不是某个值，不需要位置，可以写 `for (char c : s)`，在循环体里使用 `c`。这时拿到的是副本，修改副本不会改原串。
+
+#### 模板 2：改原串，就加 &
+
+大小写转换直接用前面的[安全转换模板](#char-reference)。换成“遇到某个字符就替换”，思路也一样。
+
+**片段：** 把已经读入的 `s` 中每个短横线 `'-'` 改成空格。
+
+```cpp
+for (char& c : s) {
+    if (c == '-') {
+        c = ' ';
+    }
+}
+```
+
+例如 `hello-ICPC` 会变成 `hello ICPC`。这里改的是原串；若后面需要原始内容，要提前保存一份。若题目只让忽略大小写，不要额外替换标点或删空格。
+
+#### 模板 3：只要单词，用 stringstream
+
+前面的[第 4 节](#stringstream)已有完整写法，关键组合是 `stringstream ss(s)`、声明接收变量 `string word`、再 `while (ss >> word)`。默认情况下，连续空格、制表符等空白都会被当作分隔；它不会自动去掉单词上的标点。
+
+这种简单取词循环没有替你记录每个词在原串中的起点。**第几个单词**和**第几个字符**是两回事；不能直接把词序号当作原位置。
+
+#### 模板 4：需要原字符位置，用下标扫描
+
+下面约定**只用普通空格 `' '` 分词**。这与 `stringstream` 按一般空白分词不同：制表符 `\t` 在这个手动模板里属于词的一部分，不会被自动跳过。先按题面选好分隔规则。
+
+扫描过程只有三件事：
+
+1. `i` 指向当前还没处理的字符。遇到空格就 `++i`，再 `continue`，直接开始下一轮。
+2. 遇到非空格，把当前位置保存成 `start`，它是这个词的**起点**。然后一直往后走，直到遇到空格或字符串结束。
+3. 此时 `i` 是这个词**结尾后面一位**，所以词对应区间是 `[start, i)`，长度是 `i - start`。用 `s.substr(start, i - start)` 取出词。
+
+关键条件必须写成 `i < s.size() && s[i] != ' '`：先确认没到末尾，才访问 `s[i]`。`&&` 左边为假时不会执行右边。只写 `while (s[i] != ' ')` 会在最后一个词后没有空格时继续越过边界。
+
+例如原串示意是 `··hi··ICPC·ok··`，这里每个 `·` 只用来表示一个普通空格，实际字符串里没有这个点：
+
+| 取出的词 | start：起点 | i：词末尾后一位 | i - start：长度 |
+| --- | --- | --- | --- |
+| `hi` | 2 | 4 | 2 |
+| `ICPC` | 6 | 10 | 4 |
+| `ok` | 11 | 13 | 2 |
+
+下标从 `0` 开始，前导空格、连续空格和尾部空格都在原串中占位置。两端各有两个空格时，整个字符串长度是 `15`；去掉最后两个空格，长度变成 `13`，最后一个词的 `i` 正好等于 `s.size()`，仍然能够正常取出 `ok`。
+
+### 完整示例 5D：输出每个词和它在原串中的起点
+
+程序不删除空格、不修改字符串，输出格式是 `[词] 起点下标`。分隔符只认普通空格 `' '`；空行和全空格行没有单词，因此不输出任何行。
+
+```cpp
+#include <iostream>
+#include <string>
+using namespace std;
+
+int main() {
+    string s;
+    if (!getline(cin, s)) {
+        return 0;
+    }
+
+    string::size_type i = 0;
+    while (i < s.size()) {
+        if (s[i] == ' ') {
+            ++i;
+            continue;
+        }
+
+        string::size_type start = i;
+        while (i < s.size() && s[i] != ' ') {
+            ++i;
+        }
+        string word = s.substr(start, i - start);
+        cout << '[' << word << "] " << start << '\n';
+    }
+    return 0;
+}
+```
+
+**输入**（开头两个空格，`hi` 后两个空格，`ok` 后没有空格）：
+
+```text
+  hi  ICPC ok
+```
+
+**输出**：
+
+```text
+[hi] 2
+[ICPC] 6
+[ok] 11
+```
+
+再给输入末尾加两个空格，输出仍相同。若输入 `hi, ICPC!`，输出 `[hi,] 0` 和 `[ICPC!] 4`，标点会保留在词里；如果要支持其他分隔规则，先按题意调整，不能默认所有题都这样分词。
+
+`i` 在跳空格或扫描单词时都会前进，最终到达 `s.size()`，所以空串、全空格、连续空格和最后一个词后没有空格时都能结束。位置仍按 `std::string` 的存储单元计数，UTF-8 中文不能直接按汉字个数理解。
+
+**选择口诀：整句用 getline → 改大小写用 char& → 只要词用 stringstream → 要原字符位置就手动扫描。** 这个扫描结构可用于补上前面提到的 P1308 位置记录，但仍需按题面处理目标词比较、计数和最终输出格式。
 
 <a id="recap"></a>
 ## 6. 六种原始写法速查
