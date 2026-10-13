@@ -22,6 +22,7 @@
 3. [string：整行输入与五种常用操作](#getline)
 4. [stringstream：把一行拆成单词或数字](#stringstream)
 5. [cin 后接 getline：为什么会读到空行](#mixed-input)
+   - [把四步串起来：读整行、转小写、拆单词、比较计数](#word-count)
 6. [六种原始写法速查与易错点](#recap)
 
 ### 按需选读
@@ -600,6 +601,144 @@ getline(cin >> ws, line);
 - 如果从程序开始就一直用 `getline`，通常不需要额外清理换行。
 
 不要用“先随便 `getline` 一次”当万能修复，它可能把真正需要的那一行读走。
+
+<a id="word-count"></a>
+### 把四步串起来：读整行 → 转小写 → 拆单词 → 比较
+
+**想完成什么：** 第一行输入一个英文目标词，第二行输入一整行文本，统计目标词出现几次，忽略英文字母大小写。例如查找 `Hello`，`hello` 和 `HELLO` 都算，但 `helloworld` 不算。
+
+下面四步都是**片段**，最后有一份可以直接运行的完整程序。它们使用同一组变量：`word` 是目标词，`text` 是整行文本，`temp` 是每次拆出的词。
+
+#### 第 1 步：读完整一行
+
+**片段：** 输入格式是“第一行目标词，第二行文本”，需要 `<iostream>`、`<string>`、`<limits>`。
+
+```cpp
+string word;
+string text;
+cin >> word;
+cin.ignore(numeric_limits<streamsize>::max(), '\n');
+getline(cin, text);
+```
+
+你可能见过更短的 `cin.ignore();`。**不带参数时，它最多只丢掉 1 个字符**：只有当前紧接着一个待清理的换行时，才刚好符合这里的用途。如果第一行目标词后还有空格，它可能只丢掉一个空格，后面的 `getline` 仍会读到第一行剩余内容。
+
+这里用 `ignore(..., '\n')` 明确清理第一行的剩余内容，再读第二行。它的适用前提仍是“有用文本在下一行”；目标词和文本在同一行时，这样写会把文本丢掉。若从头到尾都用 `getline`，也不要无缘无故先 `ignore()`，否则可能吞掉有用字符。
+
+#### 第 2 步：把文本和目标词都转成小写
+
+**片段：** `text`、`word` 已有内容；另需 `<cctype>`。
+
+```cpp
+for (char& c : text) {
+    c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+}
+for (char& c : word) {
+    c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+}
+```
+
+- `for (char& c : text)`：依次处理 `text` 中的每个字符；你见到的 `s` 只是另一个变量名，这里统一叫 `text`。
+- `char&` 中的 `&` 表示**引用**，可以理解成“给原来的那个字符起别名”。修改 `c`，就是修改字符串里的那个字符。
+- 若写成 `for (char c : text)`，`c` 是一份副本，修改它不会让原来的 `text` 变小写。
+- `word` 也要做同样的转换；只转换文本，目标词 `Hello` 仍然无法和 `hello` 相等。
+
+安全转换的内外两层 `static_cast` 和非 Unicode 限制，见[第 3 节的 tolower 说明](#getline)。这里仍按英文大小写转换来理解。
+
+#### 第 3 步：从整行里逐个取词
+
+**片段：** `text` 已转成小写；另需 `<sstream>`。
+
+```cpp
+stringstream ss(text);
+string temp;
+while (ss >> temp) {
+    // 每成功取出一个新词，就在这里处理这个 temp。
+}
+```
+
+`ss` 从已有的 `text` 中读，不是再等键盘输入。`while (ss >> temp)` 每次先尝试读取**下一个新词**：成功才进入循环体，读完或读取失败就停止。不要把取词放在循环外只做一次，也不要在循环结束后再拿旧的 `temp` 多统计一次。
+
+连续空格、制表符等空白会被跳过，不会生成“空单词”。第二行为空或只有空白时，循环一次也不执行。更多拆分规则见[第 4 节](#stringstream)。
+
+#### 第 4 步：比较当前词，相等就计数
+
+**片段：** `word` 是已转小写的目标词，`temp` 是循环中刚读出的词。
+
+```cpp
+// 这一行放在 while 循环外，开始统计前只执行一次。
+long long count = 0;
+
+// 下面的 if 放在 while (ss >> temp) 的循环体内。
+if (temp == word) {
+    ++count;
+}
+```
+
+- `==` 是**比较是否相等**；一个 `=` 是赋值，不能把这里写成 `temp = word`。
+- 这里比较的是两个字符串的全部内容，不是“包含关系”。`hello` 等于 `hello`，`helloworld` 不等于 `hello`。
+- `++count` 表示次数加 1。`count` 必须在循环外初始化为 `0`，否则每读一个词都清零，就记不住前面的次数。
+
+### 完整示例 5A：忽略英文大小写，统计整词次数
+
+输入第一行是一个非空目标词，第二行是待统计文本。这里把**按空白分隔出的每一段文本**当作一个词；不自动删除标点，所以 `hello,` 和 `hello` 不相等。输出只有次数。
+
+```cpp
+#include <cctype>
+#include <iostream>
+#include <limits>
+#include <sstream>
+#include <string>
+using namespace std;
+
+int main() {
+    string word;
+    string text;
+    if (!(cin >> word)) {
+        return 0;
+    }
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    if (!getline(cin, text)) {
+        return 0;
+    }
+
+    for (char& c : text) {
+        c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+    }
+    for (char& c : word) {
+        c = static_cast<char>(tolower(static_cast<unsigned char>(c)));
+    }
+
+    stringstream ss(text);
+    string temp;
+    long long count = 0;
+    while (ss >> temp) {
+        if (temp == word) {
+            ++count;
+        }
+    }
+
+    cout << count << '\n';
+    return 0;
+}
+```
+
+**输入**（第二行的 `hello` 和 `HELLO` 之间有两个空格）：
+
+```text
+Hello
+hello  HELLO world helloworld Hello
+```
+
+**输出**：
+
+```text
+3
+```
+
+处理过程：目标词先变成 `hello`；第二行拆出 `hello`、`hello`、`world`、`helloworld`、`hello`，其中 3 个与目标词完全相等。若第二行是空行、全是空格，或者没有匹配词，都会输出 `0`；如果缺少第二行，则读取失败，直接结束。
+
+这是一份演示四步如何配合的计数程序。遇到[洛谷 P1308](https://www.luogu.com.cn/problem/P1308) 等具体题目，还要按题面补上首次出现位置、未找到时的输出等要求；不要把这份示例直接当作完整题解提交。
 
 <a id="recap"></a>
 ## 6. 六种原始写法速查
