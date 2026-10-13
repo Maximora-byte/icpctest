@@ -19,7 +19,7 @@
 0. [怎样运行示例、头文件是什么](#start)
 1. [vector：存放一排整数，并输入它们](#vector)
 2. [sort 和 set：排序，再去重](#sort-set)
-3. [string 和 getline：读取完整一行](#getline)
+3. [string：整行输入与五种常用操作](#getline)
 4. [stringstream：把一行拆成单词或数字](#stringstream)
 5. [cin 后接 getline：为什么会读到空行](#mixed-input)
 6. [六种原始写法速查与易错点](#recap)
@@ -62,6 +62,7 @@
 | `sort`、`unique`、二分相关函数 | `<algorithm>` | 常用算法工具 |
 | `set` | `<set>` | 不重复、默认从小到大排列的集合 |
 | `string`、字符串版本的 `getline` | `<string>` | 文本和整行读取 |
+| `tolower` | `<cctype>` | 把单个英文字母转成小写 |
 | `stringstream` | `<sstream>` | 把已有字符串当作输入来读 |
 | `numeric_limits` | `<limits>` | 查询类型的数值范围，本文用来清理一行输入 |
 | `accumulate` | `<numeric>` | 从一个初始值开始累加 |
@@ -270,7 +271,25 @@ unique: 1 3 5 8
 记住：**排序不等于去重；set 去重不等于修改 vector。**
 
 <a id="getline"></a>
-## 3. string 和 getline：读取完整一行
+## 3. string：整行输入与五种常用操作
+
+### 先记住这张五工具速查表
+
+下面假设已经声明 `string text;`。`string` 是**类型名**，`text` 才是你给字符串起的**变量名**；笔记里的“`string[i]` 访问字符”实际应写成 `text[i]`，不能直接把类型名当变量用。
+
+| 工具 | 实际写法 | 用途 |
+| --- | --- | --- |
+| `getline()` | `getline(cin, text)` | 读取整行，保留行内空格 |
+| `tolower()` | `tolower(...)`，安全的完整写法见下文 | 把**单个字符**转小写，整串要用循环 |
+| 下标 `[]` | `text[i]` | 访问下标为 `i` 的字符，下标从 0 开始 |
+| `substr()` | `text.substr(pos, count)` | 从下标 `pos` 开始，最多截取 `count` 个字符 |
+| `size()` | `text.size()` | 获取当前长度，空格也计入 |
+
+`text.size()` 和 `text.substr(...)` 中的点表示“使用 `text` 自己的操作”；`getline`、`tolower` 则直接调用。字符串相关操作需要 `<string>`，`tolower` 另需 `<cctype>`，输入输出需要 `<iostream>`。
+
+这一节先用英文、数字和空格来理解“字符”。严格说，`std::string` 存的是一串 `char`，`size()` 统计的是这些存储单元的数量；UTF-8 中文通常占多个字节，所以这里的长度、下标和截取**不能直接当作汉字个数或汉字位置**。
+
+### getline：读取完整一行
 
 **什么时候用：** 一行文本中可能有空格，例如 `hello ICPC world`。
 
@@ -318,6 +337,121 @@ hello ICPC world
 ```
 
 方括号只是让文本的边界更明显。如果输入空行，输出就是 `[]`。如果先用 `cin >> n` 读了数字，再读下一行，请看第 5 节，不能直接照搬这两行。
+
+### size 和 text[i]：先知道有多长，再按位置取字符
+
+把 `string text = "Hello ICPC!";` 想成一排格子：
+
+| 下标 | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 字符 | H | e | l | l | o | 空格 | I | C | P | C | ! |
+
+- `text.size()` 是 `11`，中间的空格和末尾的 `!` 都算一个字符。
+- `text[0]` 是 `'H'`，`text[6]` 是 `'I'`。单引号表示一个 `char`，双引号表示字符串文本。
+- 对长度为 `n` 的非空字符串，正文字符的下标是 **0 到 n - 1**。遍历条件写 `i < text.size()`，不要写 `<=`。
+- `text.empty()` 判断是否为空。空字符串的 `size()` 是 `0`，没有正文字符，不要去取“第一个”或“最后一个”字符。
+- `size()` 返回无符号整数类型。别在空字符串上计算 `text.size() - 1`，它不会得到想象中的 `-1`。
+
+`[]` 不会替你检查范围。C++17 中，`text[text.size()]` 是结尾的空字符 `\0`，**不是正文字符，也不能拿来添加字符**；更大的下标越界。初学时统一只在 `i < text.size()` 时访问正文即可。想让越界访问抛出异常，可以用 `text.at(i)`，但仍应先写对范围。
+
+### tolower：一次只处理一个字符
+
+需要 `<cctype>`。例如 `'A'` 可以变成 `'a'`；小写英文、数字、空格和标点保持原样。它**不会直接接收整个 string**，也不会自动把结果写回原变量。
+
+**片段：** 安全地转换一个字符，并保存结果。
+
+```cpp
+char ch = 'A';
+ch = static_cast<char>(tolower(static_cast<unsigned char>(ch)));
+```
+
+从内往外读这一长行：
+
+1. `static_cast<unsigned char>(ch)`：先把 `ch` 转成 `unsigned char`，再交给 `tolower`。有些机器的普通 `char` 能为负数，直接传入这样的值可能产生未定义行为；这一步避免这个问题。
+2. `tolower(...)`：得到转换结果。它的返回类型是 `int`，不是 `string`。
+3. `static_cast<char>(...)`：把结果转回 `char`，再用 `ch =` 保存；此时 `ch` 是 `'a'`。
+
+整串转换时，把这一步放进循环，对每个字符做一次。下面的完整示例会演示。
+
+**适用范围：** 这里主要处理竞赛题里的英文字母。`tolower` 的规则受当前 C locale（字符分类和转换规则）影响；本例没有改变它。它不是通用的 Unicode 大小写转换工具，不能把 UTF-8 文本逐字节传进去就当作完成了所有语言的大小写转换。
+
+### substr：起点 + 数量，不是起点 + 终点
+
+仍假设 `text` 是 `"Hello ICPC!"`：
+
+| 写法 | 结果 | 为什么 |
+| --- | --- | --- |
+| `text.substr(0, 5)` | `"Hello"` | 从下标 0 开始，取 5 个 |
+| `text.substr(6, 4)` | `"ICPC"` | 从下标 6 开始，取 4 个，不是取到下标 4 |
+| `text.substr(6)` | `"ICPC!"` | 省略数量，就取到末尾 |
+| `text.substr(6, 100)` | `"ICPC!"` | 数量超过剩余长度，只取剩下的部分 |
+| `text.substr(text.size(), 3)` | `""` | 起点正好在末尾，得到空字符串 |
+
+`substr` 返回一个**新字符串**，原来的 `text` 不变。想保存结果，可以写 `string part = text.substr(6, 4);`。
+
+边界记住三点：
+
+- `pos` 必须满足 `0 <= pos <= text.size()`；若 `pos > text.size()`，会抛出 `std::out_of_range` 异常，没处理时程序会结束。
+- 起点合法时，`count = 0` 得到空字符串；数量太大只会截到末尾。
+- 空字符串可以写 `text.substr(0, 5)`，结果仍为空；不能写 `text.substr(1)`。起点和数量都不要传负数，它们会转成无符号数，不表示“从后面数”。
+
+### 完整示例 3A：五个工具一起用
+
+读一行，输出长度和原来的首字符，再转成小写，最后截取前 5 个字符。空行也能安全处理。
+
+```cpp
+#include <cctype>
+#include <iostream>
+#include <string>
+using namespace std;
+
+int main() {
+    string text;
+    if (!getline(cin, text)) {
+        return 0;
+    }
+
+    cout << "length: " << text.size() << '\n';
+    if (!text.empty()) {
+        cout << "first: [" << text[0] << "]\n";
+    } else {
+        cout << "first: (empty)\n";
+    }
+
+    for (string::size_type i = 0; i < text.size(); ++i) {
+        text[i] = static_cast<char>(tolower(static_cast<unsigned char>(text[i])));
+    }
+
+    cout << "lower: [" << text << "]\n";
+    cout << "prefix: [" << text.substr(0, 5) << "]\n";
+    return 0;
+}
+```
+
+**输入**：
+
+```text
+Hello ICPC!
+```
+
+**输出**：
+
+```text
+length: 11
+first: [H]
+lower: [hello icpc!]
+prefix: [hello]
+```
+
+按顺序理解：
+
+1. `getline` 读取整行；前面的 `!` 检查是否读取失败。输入空行会成功读到空字符串，并继续执行；完全没有输入才会在这里结束。
+2. `size()` 输出长度。先用 `!text.empty()` 确认非空，再读取 `text[0]`，所以空行不会误取首字符。
+3. `string::size_type` 是字符串长度和下标使用的无符号整数类型，与 `size()` 的结果类型一致。循环从 0 开始，`++i` 每轮加 1，直到 `i == text.size()` 停止；空行时循环一次也不执行。
+4. 每轮把 `text[i]` 转成小写并写回同一位置，所以最后整个 `text` 都是转换后的内容。
+5. `text.substr(0, 5)` 取最多前 5 个字符；少于 5 个就全部取出，空行则得到空字符串。它没有把 `text` 变短。
+
+可以再试输入一行 `A`：长度是 `1`，首字符是 `A`，转换后和截取结果都是 `a`。直接按回车输入空行时，长度是 `0`，首字符一行显示 `first: (empty)`，后两行的方括号都是 `[]`。
 
 <a id="stringstream"></a>
 ## 4. stringstream：把一行拆开读
@@ -880,3 +1014,4 @@ stack: 3 2 1
 再试几组边界数据：`n = 0`、只有一个数、全部相同、包含负数、文本为空。能解释这些输入会发生什么，比单纯背下代码更有用。
 
 [回到阅读导航](#怎么读) · [返回仓库首页](README.md)
+
