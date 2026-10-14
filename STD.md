@@ -35,6 +35,7 @@
    - [手写二分：l、r、mid 三个变量与完整模板](#binary-search-lrmid)
    - [lower_bound：第一个大于或等于目标的位置](#lower-bound-guide)
    - [边界二分：找到后继续找，求首次或末次出现](#binary-search-first-match)
+   - [二分三种写法速查：普通二分、左边界、lower_bound](#binary-search-cheatsheet)
 10. [求和：long long 和 0LL](#sum)
 11. [map、queue、stack：计数、排队、叠盘子](#containers)
 12. [小练习与提交前检查](#practice)
@@ -1703,6 +1704,32 @@ if (a[mid] == x) {
 特别注意：**`a[mid] == x` 本身可能是“假 → 真 → 假”，不能直接塞进这张两分支表。** 上面的首次精确匹配程序之所以正确，是因为它把“小于、等于、大于”分成三种情况，并利用了数组有序。
 
 这些模板每轮仍然排除约一半候选位置，查找部分的时间复杂度为 `O(log n)`、额外空间为 `O(1)`。记忆口令：**找到先记 ans；要更靠左就缩 r，要更靠右就抬 l；方向能不能这么走，先看有序或单调。**
+
+<a id="binary-search-cheatsheet"></a>
+### 二分三种写法速查：找到就停，还是继续找？
+
+**共同前提：`a` 已从小到大排好，允许重复值。** 下面是核心片段，完整初始化和循环见各行链接；手写模板的答案变量初值为 `-1`，循环结束后读取它（普通二分示例用 `found`，左边界示例用 `ans`）。
+
+| 写法 | 要找什么 | 核心动作 / 返回结果 |
+| --- | --- | --- |
+| [普通二分](#binary-search-lrmid) | 判断 `x` 是否存在，或找任意一个匹配下标 | 遇到 `a[mid] == x` 就 `found = mid; break;`，找到即结束；有重复值时不保证最左边 |
+| [左边界二分](#binary-search-first-match) | 找 `x` 第一次出现的下标 | 遇到 `a[mid] == x` 就 `ans = mid; r = mid - 1;`，记下后继续向左，不能 `break`；不存在时仍为 `-1` |
+| [STL `lower_bound`](#lower-bound-guide) | 找第一个 `>= x` 的位置 | `auto it = lower_bound(a.begin(), a.end(), x);`；返回迭代器，没有这样的元素就返回 `a.end()` |
+
+例如 `1 2 2 2 5` 查 `2`：普通二分可能找到中间的 `2`；左边界二分得到下标 `1`；`lower_bound` 也指向下标 `1`。但查 `3` 时，两个精确匹配模板得到 `-1`，`lower_bound` 会指向下标 `4` 的 `5`。
+
+**用 `lower_bound` 判断“是否真有 x”，必须再检查一次：**
+
+**片段：** `a` 是已排序的 `vector<int>`，`x` 已定义，需要 `<algorithm>`、`<vector>`，并使用 `std` 命名空间。
+
+```cpp
+auto it = lower_bound(a.begin(), a.end(), x);
+bool found = (it != a.end() && *it == x);
+```
+
+先检查不是 `end()`，才能读取 `*it`；不是 `end()` 也可能只是找到了更大的数，所以相等判断不能省。`found` 为 `true` 时，`it - a.begin()` 才是 `x` 首次出现的下标。
+
+**记忆口令：普通二分找到就停；左边界找到先记，再向左；`lower_bound` 找的是第一个大于或等于。**
 
 <a id="sum"></a>
 ## 10. 选读：求和时注意 long long 和 0LL
