@@ -41,6 +41,7 @@
 11. [map、queue、stack：计数、排队、叠盘子](#containers)
 12. [小练习与提交前检查](#practice)
 13. [C 文件读写：八个常用函数速查与示例](#c-file-io)
+   - [二进制文件读写：wb、rb、fwrite 和 fread](#c-binary-file-io)
 
 <a id="start"></a>
 ## 0. 先学会运行一个示例
@@ -2382,7 +2383,142 @@ gcc -std=c11 -Wall -Wextra -Wpedantic file_copy_demo.c -o file_copy_demo.exe
 
 **记忆口令：打开先判空，读取用 `int`，写入看返回，用完要关闭；`"w"` 会清空，`"a"` 才追加。** 做在线评测题时，仍按题目要求使用标准输入输出或指定文件名，不要把这个练习文件名直接带进提交答案。
 
-想核对函数定义，可查 [C11 委员会草案 N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) 的 7.21.5.1（`fclose`）、7.21.5.3（`fopen`）、7.21.6.1–7.21.6.2（`fprintf`、`fscanf`）以及 7.21.7.1–7.21.7.4（`fgetc`、`fgets`、`fputc`、`fputs`）；初学时先掌握上面的示例即可。
+<a id="c-binary-file-io"></a>
+### 二进制文件读写：wb、rb、fwrite 和 fread
+
+前面的复制示例已经用过 `"wb"`、`"rb"`。现在再学两个函数：**`fwrite` 把内存中的一块数据写进文件，`fread` 把文件中的一块数据读进内存。** 它们也声明在 `<stdio.h>` 中。
+
+先记住这五步；每次打开、读写和关闭都要检查结果：
+
+| 写法 | 作用 |
+| --- | --- |
+| `fopen(filename, "wb")` | 以二进制写模式打开；不存在就尝试创建，已存在则在打开成功时立即清空 |
+| `fwrite(...)` | 从指定的内存地址写出若干个元素 |
+| `fclose(fp)` | 关闭写入的文件流，并检查缓冲数据能否成功写出 |
+| `fopen(filename, "rb")` | 以二进制只读模式重新打开；文件不存在时失败 |
+| `fread(...)`，然后 `fclose(fp)` | 读入指定个数的元素，最后关闭文件流 |
+
+#### 文件扩展名不决定格式，b 也不会自动把整数转成二进制数据
+
+- `filename` 只是保存文件名的变量。例如 `const char *filename = "file5.txt";`，即使后缀是 `.txt`，也可以用 `"wb"`、`"rb"` 按二进制模式读写。
+- `b` 控制文件流的模式，避免某些系统的文本模式进行换行等转换；**实际写入什么内容，还取决于你调用哪个函数、给它什么数据。** 用 `"wb"` 打开后调用 `fprintf(fp, "%d", n)`，写入的仍然是数字文本。
+- `fprintf(fp, "%d", n)` 把 `90` 格式化成字符 `'9'`、`'0'`；`fwrite(&n, sizeof n, 1, fp)` 则写出 `n` 的内存表示，不会做十进制文本转换，也不会自动添加换行。
+- 反过来，`fread` 不会把文本 `"90"` 解析成整数 `90`；读取数字文本要用相应的文本解析方法。不要仅凭 `.txt` 或 `.bin` 后缀判断怎样读取。
+
+#### 重点拆开：fwrite 和 fread 的四个参数
+
+下面是**两个独立的核心片段，不是完整程序**。假设 `n` 的类型是 `int`；写入时 `n` 已赋值且 `fp` 以 `"wb"` 成功打开，读取时 `fp` 以 `"rb"` 成功打开。
+
+```c
+fwrite(&n, sizeof(int), 1, fp);  // 从 n 所在的位置写出 1 个 int
+fread(&n, sizeof(int), 1, fp);   // 读入 1 个 int，存放到 n 所在的位置
+```
+
+这两行只展示参数，**实际程序必须像下面的完整示例一样检查返回值**。
+
+| 参数 | 本例 | 怎么理解 |
+| --- | --- | --- |
+| 第 1 个：内存地址 | `&n` | `fwrite` 从这里取数据；`fread` 把数据放到这里。`&n` 是取地址，不能直接传整数值 `n` |
+| 第 2 个：每个元素的大小 | `sizeof(int)` | 一个 `int` 占多少字节；不要写死成 `4` |
+| 第 3 个：元素个数 | `1` | 本次想写入或读取 1 个元素，不是 1 个字节 |
+| 第 4 个：文件流 | `fp` | 已成功打开、模式适合这次操作的文件流 |
+
+当 `n` 是 `int` 时，`sizeof n` 与 `sizeof(int)` 相等。下面优先写 `sizeof n`，这样以后修改 `n` 的类型时，不容易忘记同步修改大小；不要误写成 `sizeof &n`，那得到的是指针的大小。
+
+**返回值是成功读写的完整元素个数，类型为 `size_t`，不是字节数。** 本例请求 1 个元素，所以只有返回 `1` 才表示这个整数完整读写成功。若 `sizeof n` 恰好为 4，成功处理 4 个字节时返回的仍是 `1`。
+
+`fread` 返回不足 `1` 时，可能是文件已经结束、只剩不完整的整数，或者发生读取错误；用 `ferror(fp)` 区分读取错误。**未完整读入时不要使用 `n`，即使之前把它初始化为 `0` 也一样**，因为部分读取可能已经改动了它的字节。`fwrite` 返回不足 `1` 表示写入失败；即使返回 `1`，也仍要检查后续 `fclose`。
+
+### 完整示例 14：把一个整数按二进制写入，再读回
+
+**只在新建的空练习目录中运行。** 这里专门使用 `file5.txt` 展示“扩展名不决定格式”；`"wb"` 每次都会清空同名文件，不要把文件名改成有用文件的路径。示例只读取本程序刚刚写出的数据，适合同一程序、同一平台上的入门练习。
+
+保存为 `binary_file_demo.c`：
+
+```c
+#include <stdio.h>
+
+int main(void) {
+    const char *filename = "file5.txt";
+    int n = 90;
+    int status = 0;
+
+    /* 第一步：写出 n 的内存表示，再关闭文件。 */
+    FILE *fp = fopen(filename, "wb");
+    if (fp == NULL) {
+        perror("open for writing");
+        return 1;
+    }
+    if (fwrite(&n, sizeof n, 1, fp) != 1) {
+        perror("write integer");
+        status = 1;
+    }
+    if (fclose(fp) != 0) {
+        perror("close after writing");
+        status = 1;
+    }
+    if (status != 0) {
+        return status;
+    }
+
+    /* 第二步：重新打开，把文件里的整数读回 n。 */
+    n = 0;
+    fp = fopen(filename, "rb");
+    if (fp == NULL) {
+        perror("open for reading");
+        return 1;
+    }
+    if (fread(&n, sizeof n, 1, fp) != 1) {
+        if (ferror(fp)) {
+            perror("read integer");
+        } else {
+            fprintf(stderr, "file does not contain a complete int\n");
+        }
+        status = 1;
+    }
+    if (fclose(fp) != 0) {
+        perror("close after reading");
+        status = 1;
+    }
+    if (status != 0) {
+        return status;  // 没有完整读到整数或关闭失败时，不输出 n
+    }
+
+    if (printf("%d\n", n) < 0) {
+        perror("display integer");
+        status = 1;
+    }
+    if (fflush(stdout) != 0) {
+        perror("flush screen output");
+        status = 1;
+    }
+    return status;
+}
+```
+
+Linux / macOS：
+
+```bash
+gcc -std=c11 -Wall -Wextra -Wpedantic binary_file_demo.c -o binary_file_demo
+./binary_file_demo
+```
+
+Windows PowerShell：
+
+```powershell
+gcc -std=c11 -Wall -Wextra -Wpedantic binary_file_demo.c -o binary_file_demo.exe
+.\binary_file_demo.exe
+```
+
+**输入：** 无需键盘输入。**屏幕输出：** `90`，然后换行；成功返回 `0`，失败返回 `1` 并报错。屏幕上的 `90` 是 `printf` 格式化后的文本，不能据此认为文件中存的也是字符 `"90"`；用文本编辑器打开这个文件，不应期待直接看到数字 `90`。
+
+可以把 `n = 90` 改成 `n = -7` 再运行。想练习空文件、不足一个 `int` 的文件或文件不存在的情况，要**仅保留第二步及后面的输出检查**，并在它前面声明 `filename`、`int n = 0;`、`int status = 0;`、`FILE *fp;`；否则第一步会先创建文件并写入完整数据，测不到这些情况。读取失败时应报错，不应输出 `n`。
+
+**可移植性先记一句：直接写内存表示，不等于设计好了通用文件格式。** 不同平台的 `int` 大小、字节顺序和表示可能不同，不能保证另一个环境原样读回。以后学结构体时，整块 `fwrite` 还涉及填充字节、布局差异；指针成员只会写出地址表示，不会自动保存它指向的数据。需要跨平台或长期保存时，应明确规定各字段的大小、编码和字节顺序，再分别读写；本节先练习这两个函数的基本用法。
+
+**二进制读写口令：`wb` 打开 → `fwrite` 写 → 关闭 → `rb` 打开 → `fread` 读 → 关闭；地址、大小、个数、文件流，返回值数完整元素。**
+
+想核对函数定义，可查 [C11 委员会草案 N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) 的 7.21.5.1（`fclose`）、7.21.5.3（`fopen`）、7.21.6.1–7.21.6.2（`fprintf`、`fscanf`）、7.21.7.1–7.21.7.4（`fgetc`、`fgets`、`fputc`、`fputs`）以及 7.21.8.1–7.21.8.2（`fread`、`fwrite`）；初学时先掌握上面的示例即可。
 
 [回到阅读导航](#怎么读) · [返回仓库首页](README.md)
 
