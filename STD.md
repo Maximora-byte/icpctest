@@ -40,20 +40,21 @@
 10. [求和：long long 和 0LL](#sum)
 11. [map、queue、stack：计数、排队、叠盘子](#containers)
 12. [小练习与提交前检查](#practice)
+13. [C 文件读写：八个常用函数速查与示例](#c-file-io)
 
 <a id="start"></a>
 ## 0. 先学会运行一个示例
 
 ### 完整程序和代码片段要分开看
 
-本文标有“**完整示例**”的代码可以单独复制到 `main.cpp`，选择 **C++17** 编译运行。每次只复制一个完整示例，不要把几个 `main()` 拼在一起。
+除第 13 节明确标出的 C 示例外，本文标有“**完整示例**”的代码可以单独复制到 `main.cpp`，选择 **C++17** 编译运行。每次只复制一个完整示例，不要把几个 `main()` 拼在一起。
 
 标有“**片段**”的代码只讲某一行写法，需要放进完整程序的合适位置，不能单独运行。
 
 完整程序一般有这几部分：
 
 - `#include <vector>`：引入某种工具的声明，叫**头文件**。用什么工具，就包含相应头文件。
-- `using namespace std;`：本文的短练习都写这一行，于是可以把 `std::cin` 简写成 `cin`。大型项目通常更倾向于明确写 `std::`，避免名字冲突。
+- `using namespace std;`：前面的 C++ 短练习都写这一行，于是可以把 `std::cin` 简写成 `cin`。大型项目通常更倾向于明确写 `std::`，避免名字冲突。
 - `int main() { ... }`：程序从这里开始执行，花括号里的语句从上往下运行。
 - `return 0;`：正常结束程序。
 - `// ...`：注释，是给人看的说明，不会执行。
@@ -1999,6 +2000,389 @@ stack: 3 2 1
 - 题目输出只要求答案吗？示例中的 `sorted:`、`size:` 等标签用于讲解，提交题目时按题面要求调整。
 
 再试几组边界数据：`n = 0`、只有一个数、全部相同、包含负数、文本为空。能解释这些输入会发生什么，比单纯背下代码更有用。
+
+<a id="c-file-io"></a>
+## 13. 选读：C 文件读写的八个常用函数
+
+先记住顺序：**`fopen()` 打开 → `fgetc()` 读取 / `fprintf()` 写入 → `fclose()` 关闭。**
+
+前面的示例主要使用 C++；这一节单独介绍 **C 标准库**的文件操作。完整示例保存成 `.c` 文件，只需要 `#include <stdio.h>`，不需要 `using namespace std;`。文件里的数据能保留下来，下次运行程序时还可以读取。
+
+### 先掌握的八个文件操作函数
+
+`FILE *fp` 是“指向文件流的指针”。初学时可以把 `fp` 理解成程序操作已打开文件的入口；它不是文件名，也不是文件内容。
+
+下面的英文是帮助记忆函数名的助记说法；星级表示本节建议的学习顺序：⭐⭐⭐ 先掌握，⭐⭐ 接着学，并不是所有场景下的绝对重要性排名。
+
+建议学习顺序：**先熟练 `fopen` → `fclose` → `fgetc` → `fprintf`，再学习 `fgets` → `fscanf` → `fputc` → `fputs`。**
+
+| 函数 | 英文助记 | 作用 | 返回值要点 | 学习优先级 |
+| --- | --- | --- | --- | --- |
+| `fopen()` | File Open | 打开文件 | 成功返回 `FILE *`，失败返回 `NULL` | ⭐⭐⭐ |
+| `fclose()` | File Close | 关闭文件，尝试写出缓冲的输出 | 成功返回 `0`，失败返回 `EOF` | ⭐⭐⭐ |
+| `fgetc()` | File Get Character | 读取一个字符（字节），并向后移动 | 成功返回字节值（转换为 `int`），文件结束或读取错误时返回 `EOF` | ⭐⭐⭐ |
+| `fprintf()` | File Print Formatted | 格式化写入文件 | 成功返回写出的字符数，出错返回负数 | ⭐⭐⭐ |
+| `fputc()` | File Put Character | 写入一个字符（字节） | 成功返回写出的字节值（转换为 `int`），失败返回 `EOF` | ⭐⭐ |
+| `fgets()` | File Get String | 读取一行或其中一部分，最多 `n - 1` 个字节 | 成功返回缓冲区指针；未读到数据就结束或读取错误时返回 `NULL` | ⭐⭐ |
+| `fputs()` | File Put String | 写入一个字符串，不自动补换行 | 成功返回非负值，失败返回 `EOF` | ⭐⭐ |
+| `fscanf()` | File Scan Formatted | 格式化读取文件 | 返回成功赋值的项数；首次转换前发生输入失败时返回 `EOF` | ⭐⭐ |
+
+### FILE、EOF、NULL 都不是函数
+
+- **`FILE` 是 `<stdio.h>` 提供的文件流相关类型，不是函数。** `FILE *fp` 声明的是文件流指针；成功打开后，通过这个指针操作文件，不需要自己修改 `FILE` 的内部内容。
+- **`EOF` 是 `<stdio.h>` 定义的负 `int` 宏常量，不是函数，也不是文件中的字符。** 对 `fgetc` 来说，它可能表示文件读完，也可能表示读取错误。读取后用 `ferror(fp)` 检查错误，用 `feof(fp)` 检查是否已经遇到文件尾；不要用 `feof` 预测下一次读取是否成功。
+- **`NULL` 是表示空指针常量的宏，不是函数。** `fopen` 返回 `NULL` 表示打开失败；不能继续用这个空指针读取、写入或关闭文件。
+
+### fopen：先选对模式，再检查是否打开成功
+
+| 模式 | 用途 | 文件不存在时 | 文件已经存在时 |
+| --- | --- | --- | --- |
+| `"r"` | 只读 | 打开失败，返回 `NULL` | 从开头读取，不修改内容 |
+| `"w"` | 只写 | 尝试创建 | **打开成功时立即清空旧内容**，再从开头写入 |
+| `"a"` | 追加写入 | 尝试创建 | 保留旧内容，每次写入都追加到末尾 |
+
+创建文件仍可能因为路径错误、目录不存在或权限不足而失败。**看到 `"w"`，先确认这个文件可以被清空。** 只想读文件时不要用 `"w"`。
+
+`"example.txt"` 是相对路径，通常相对于程序运行时的**工作目录**，不一定是 `.c` 源文件所在目录。编辑器的运行设置可能改变工作目录；找不到文件时，先检查目录和文件名。
+
+**片段：** 已包含 `<stdio.h>`，放在 `main` 内。
+
+```c
+FILE *fp = fopen("example.txt", "r");
+if (fp == NULL) {
+    perror("fopen");
+    return 1;
+}
+/* 打开成功后，才能用 fp 读取；用完还要 fclose(fp)。 */
+```
+
+`NULL` 表示没有得到可用的文件流；此时不能把 `fp` 传给 `fgetc`、`fprintf` 或 `fclose`。`perror` 是辅助报错函数，向标准错误输出打印提示；`return 1;` 表示程序失败结束。
+
+### fgetc：用 int 接住结果，再与 EOF 比较
+
+**片段：** `fp` 已经成功以读取模式打开。
+
+```c
+int ch;
+while ((ch = fgetc(fp)) != EOF) {
+    putchar(ch);
+}
+```
+
+- `ch = fgetc(fp)`：先读一次，把返回值存进 `ch`。
+- `!= EOF`：只有确实读到数据，才进入循环体；空文件第一次读取就返回 `EOF`，不会输出字符。
+- `putchar(ch)`：把刚读到的字符显示到屏幕；空格和换行也会照常读出、显示。
+- **`ch` 必须用 `int`，不要用 `char`。** 要同时保留所有字节值和特殊标记 `EOF`，提前存进 `char` 可能丢失信息，导致提前结束或无法结束。
+- `EOF` 是 `<stdio.h>` 定义的标记，不是文件里真的存着一个叫 EOF 的字符。读取错误也会返回 `EOF`；循环后用 `ferror(fp)` 检查是否出错，完整示例会演示。
+
+这里按字节读取，适合先练习英文文本。UTF-8 中文的一个汉字通常占多个字节，不能把一次 `fgetc` 理解成读完一个汉字。不要用 `while (!feof(fp))` 判断“下一次有没有数据”：先调用读取函数，再检查这次的结果。
+
+### 四种单字符操作：数据从哪里来，到哪里去
+
+| 操作 | 数据流向 | 常见理解 |
+| --- | --- | --- |
+| `getchar()` | 标准输入 `stdin` → 程序 | 通常从键盘读取一个字符 |
+| `fputc(ch, fp)` | 程序 → `fp` 指向的文件流 | 向已打开的文件写入一个字符 |
+| `fgetc(fp)` | `fp` 指向的文件流 → 程序 | 从已打开的文件读取一个字符 |
+| `putchar(ch)` | 程序 → 标准输出 `stdout` | 通常向屏幕输出一个字符 |
+
+这里的“键盘”和“屏幕”是常见情况；`stdin`、`stdout` 可以被重定向到文件或管道，所以不要把它们和物理设备完全等同。可以把 `getchar()` 理解为 `fgetc(stdin)`，把 `putchar(ch)` 理解为 `fputc(ch, stdout)`。
+
+下面是**两个独立的核心片段，不是完整程序，也不要直接连在一起执行**。已包含 `<stdio.h>`；`fp` 已按说明成功打开；`int status = 0;` 用来记录错误。
+
+**片段 A：键盘 → 程序 → 文件。** `fp` 以 `"w"` 或 `"a"` 模式打开，只处理这次读到的一个字符。
+
+```c
+int ch = getchar();                        // 标准输入（通常是键盘）→ 程序
+if (ch != EOF && fputc(ch, fp) == EOF) {     // 程序 → 文件
+    perror("write character");
+    status = 1;
+}
+```
+
+**片段 B：文件 → 程序 → 屏幕。** `fp` 以 `"r"` 模式打开，只处理这次读到的一个字符。
+
+```c
+int ch = fgetc(fp);                        // 文件 → 程序
+if (ch != EOF && putchar(ch) == EOF) {       // 程序 → 标准输出（通常是屏幕）
+    perror("display character");
+    status = 1;
+}
+```
+
+- `&&` 从左往右判断；如果 `ch == EOF`，右边的输出函数不会执行，避免把 EOF 当成普通字符写出去。
+- `getchar()` 和 `fgetc()` 都用 `int` 接收结果。`EOF` 也可能表示读取错误：片段 A 后检查 `ferror(stdin)`，片段 B 后检查 `ferror(fp)`；不能把所有 EOF 都当作正常读完。
+- 空格和换行也是字符。在终端输入 `A` 再按回车，通常先读到 `'A'`，下一次读取才会读到 `'\n'`；一次 `getchar()` 不会自动读完或丢弃整行。
+- 两段分别对应“读入再写出”的两条路线。用完文件都要检查 `fclose(fp)`；片段 B 的屏幕输出还要检查 `fflush(stdout)`，完整错误处理可参照后面的完整示例。
+
+### fprintf：比 printf 多一个“写到哪里”
+
+`printf("score=%d\n", score);` 通常把文本显示到屏幕；`fprintf(fp, "score=%d\n", score);` 则写进 `fp` 对应的文件。
+
+- `%d` 对应 `int`，`%s` 对应字符串，`%c` 对应字符，`\n` 表示换行；格式和实参类型必须匹配。
+- 例如 `score` 为 `90` 时，文件得到一行 `score=90`，不是二进制形式的整数。
+- 检查 `fprintf(...) < 0` 可以发现写入错误；没有立即报错，也仍需检查后面的 `fclose`，因为数据可能暂存在缓冲区中。
+- 如果要原样写入一个字符串 `text`，用 `fprintf(fp, "%s", text)`；不要把内容不确定的 `text` 直接当作格式串。
+
+### 完整示例 12：先写入文件，再逐字节读回
+
+**请在新建的空练习目录中运行。** 示例只使用 `file_io_example.txt`，每次运行都会用 `"w"` 清空同名文件；不要改成有用文件的名字。
+
+保存为 `file_io_demo.c`：
+
+```c
+#include <stdio.h>
+
+int main(void) {
+    const char *filename = "file_io_example.txt";
+    int status = 0;  // 0 表示成功；发生错误后改成 1
+
+    /* 第一步：打开文件，写入，再关闭。 */
+    FILE *fp = fopen(filename, "w");
+    if (fp == NULL) {
+        perror("open for writing");
+        return 1;
+    }
+
+    if (fprintf(fp, "Hello, file!\nscore=%d\n", 90) < 0) {
+        perror("write file");
+        status = 1;
+    }
+    if (fclose(fp) != 0) {
+        perror("close after writing");
+        status = 1;
+    }
+    if (status != 0) {
+        return status;
+    }
+
+    /* 第二步：重新以只读模式打开，从开头读取。 */
+    fp = fopen(filename, "r");
+    if (fp == NULL) {
+        perror("open for reading");
+        return 1;
+    }
+
+    int ch;
+    while ((ch = fgetc(fp)) != EOF) {
+        if (putchar(ch) == EOF) {
+            perror("print to screen");
+            status = 1;
+            break;
+        }
+    }
+    if (ferror(fp)) {
+        perror("read file");
+        status = 1;
+    }
+    if (fclose(fp) != 0) {
+        perror("close after reading");
+        status = 1;
+    }
+    if (fflush(stdout) != 0) {
+        perror("flush screen output");
+        status = 1;
+    }
+    return status;
+}
+```
+
+**输入：** 无需键盘输入。程序自行写入练习文件，然后读取它。
+
+**文件内容与屏幕输出均为：**
+
+```text
+Hello, file!
+score=90
+```
+
+运行顺序是“写模式打开 → 写入两行 → 关闭 → 读模式打开 → 循环读取 → 关闭”。`ferror(fp)` 非零表示这个流发生过错误；正常读到文件末尾时它不会因此变为非零。`status` 用来记住错误，让程序报错后仍能执行关闭操作。最后的辅助调用 `fflush(stdout)` 尝试写出屏幕输出的缓冲数据，也检查输出错误。
+
+已安装 `gcc` 时，在新建的练习目录中编译运行：
+
+Linux / macOS：
+
+```bash
+gcc -std=c11 -Wall -Wextra -Wpedantic file_io_demo.c -o file_io_demo
+./file_io_demo
+```
+
+Windows PowerShell：
+
+```powershell
+gcc -std=c11 -Wall -Wextra -Wpedantic file_io_demo.c -o file_io_demo.exe
+.\file_io_demo.exe
+```
+
+### fclose：成功打开的文件，用完就关闭
+
+- 每次成功 `fopen` 得到的文件流，都应在正常路径和错误路径中关闭一次；不要等程序退出才处理。
+- 写入出错后也要尝试关闭。上例先记住错误，再 `fclose`，不会直接 `return` 而漏关文件。
+- 检查 `fclose(fp) != 0`：缓冲数据在关闭时写出，也可能此时才报告错误。关闭成功不等于对断电等情况作出持久化保证。
+- **调用 `fclose` 后，不要再读写或再次关闭这个旧文件流，即使关闭时报错也一样。** 上例第二阶段给 `fp` 重新赋予的是另一次 `fopen` 返回的新文件流。
+
+可以再做三个小实验：把 `90` 改成别的整数；仅保留读取阶段读取一个空文件，观察没有输出但正常结束；仅保留读取阶段并把文件名改成不存在的名字，观察打开失败。后两个实验必须去掉写入阶段，否则程序会先创建并填入文件，测不到空文件或文件不存在的情况。
+
+### 再补四个常用函数：写字符、读行、写字符串、按格式读
+
+下面都是**独立片段**，不是完整程序。已包含 `<stdio.h>`，`fp` 已按所需模式成功打开，`int status = 0;` 用来记录错误。片段执行后仍要检查 `fclose(fp)`；向屏幕输出后还要检查 `fflush(stdout)`，可以参照上面的完整示例收尾。
+
+#### fputc 和 fputs：写一个字符，或写一段字符串
+
+**写入片段：** `fp` 以 `"w"` 或 `"a"` 模式打开。
+
+```c
+if (fputc('A', fp) == EOF) {
+    perror("fputc");
+    status = 1;
+}
+if (fputs("BC\n", fp) == EOF) {
+    perror("fputs");
+    status = 1;
+}
+```
+
+两次写入都成功时，得到一行 `ABC`。`fputc` 一次写一个字节，成功返回写出的字节值（转换为 `int`），失败返回 `EOF`。
+
+`fputs` 把字符串写到结尾的 `\0` 之前，**不写入 `\0`，也不自动补换行**；这里的换行来自字符串里的 `\n`。它成功返回非负值，失败返回 `EOF`，不要把成功返回值当作写出的字符数。`fputs` 不做格式替换，字符串中的 `%d` 也会原样写出。
+
+#### fgets：一次最多读 n - 1 个字节，不保证读完一整行
+
+**读取片段：** `fp` 以 `"r"` 模式打开。
+
+```c
+char line[16];
+if (fgets(line, sizeof line, fp) != NULL) {
+    if (fputs(line, stdout) == EOF) {
+        perror("display line");
+        status = 1;
+    }
+} else if (ferror(fp)) {
+    perror("fgets");
+    status = 1;
+}
+```
+
+- 第二个参数是缓冲区大小 `n`，包含为结尾 `\0` 留的位置；本例 `n = 16`，最多读取 15 个字节，成功后补 `\0`，使 `line` 成为 C 字符串。
+- 遇到换行会停；**如果这次读到了换行，`\n` 会保留在字符串里**。`fputs(line, stdout)` 会原样显示，不会额外加换行。
+- 如果一行太长，先读满 15 个字节就返回，剩余内容要下次 `fgets` 才能继续读。因此“成功一次”不一定等于“读完一行”。大小参数不能超过实际数组容量。
+- 读到 EOF 前已有数据时，仍成功返回 `line`；还没读到数据就遇到 EOF，或发生读取错误时，返回 `NULL`。返回 `NULL` 后不要使用这次缓冲区的内容，先用 `ferror(fp)` 区分错误与正常结束。
+
+#### fscanf：按格式读取，先检查成功赋值了几项
+
+**读取片段：** `fp` 以 `"r"` 模式打开，文件预期包含一个不带空格的英文名字和一个 `int` 范围内的整数，例如 `Alice 90`。
+
+```c
+char name[16];
+int score;
+int count = fscanf(fp, "%15s %d", name, &score);
+if (count == 2) {
+    if (printf("%s %d\n", name, score) < 0) {
+        perror("display record");
+        status = 1;
+    }
+} else if (ferror(fp)) {
+    perror("fscanf");
+    status = 1;
+} else {
+    fprintf(stderr, "expected a name and an integer\n");
+    status = 1;
+}
+```
+
+- `fscanf` 与 `scanf` 类似，只是第一个参数指定从哪个文件读。`%d` 读整数，要传 `&score`；字符数组 `name` 直接传名字。
+- **返回值是成功赋值的项数，不是读取的字符数。** 本例只有 `count == 2` 时才能使用两个结果；`Alice oops` 只成功读到名字，返回 `1`。如果首次转换前就发生输入失败（例如空文件），返回 `EOF`；其他格式也可能因不匹配返回 `0`，例如用 `%d` 读取 `oops`。
+- `name` 能放 16 个字符，`%15s` 限制最多读取 15 个字节，剩下一个位置留给 `\0`。**用 `%s` 读入数组一定要给出合适的宽度。** 超长单词的剩余部分仍在文件里，可能影响下一项读取，并不是自动跳过。
+- `%s` 以空白分隔单词，不能读取带空格的整行名字；想保留一整行，优先考虑 `fgets`。本例假设输入的整数在 `int` 范围内，不能把 `fscanf` 当作任意输入都安全的数字校验器。
+- 循环读取时，也应让读取结果决定是否继续，例如读一个整数用 `while (fscanf(fp, "%d", &score) == 1)`；不要用 `while (!feof(fp))`。
+
+### 完整示例 13：把第一个文件复制到第二个文件
+
+把步骤记成三句话：
+
+1. 用 `fopen()` 打开两个文件：源文件负责读，目标文件负责写。
+2. 用 `fgetc()` 从源文件读一个字节，再用 `fputc()` 把它写入目标文件，重复到读完或出错。
+3. 用 `fclose()` 关闭两个文件；中途出错也要关闭已经成功打开的文件。
+
+**请继续在空练习目录中操作。** 先手动新建 `copy_source.txt`，写入下面的内容；`copy_result.txt` 是专用输出文件，若已存在就会被清空。**必须确保源、目标指向两个不同文件**；文件名不同也可能通过符号链接或硬链接指向同一个文件，本例不自动检测这种情况。
+
+源文件内容：
+
+```text
+Hello, copy!
+score=90
+```
+
+保存为 `file_copy_demo.c`：
+
+```c
+#include <stdio.h>
+
+int main(void) {
+    /* 先打开源文件：如果源文件不存在，不会创建或清空目标文件。 */
+    FILE *src = fopen("copy_source.txt", "rb");
+    if (src == NULL) {
+        perror("open source");
+        return 1;
+    }
+
+    FILE *dst = fopen("copy_result.txt", "wb");
+    if (dst == NULL) {
+        perror("open destination");
+        if (fclose(src) != 0) {
+            perror("close source");
+        }
+        return 1;
+    }
+
+    int status = 0;
+    int ch;
+    while ((ch = fgetc(src)) != EOF) {
+        if (fputc(ch, dst) == EOF) {
+            perror("write destination");
+            status = 1;
+            break;
+        }
+    }
+    if (ferror(src)) {
+        perror("read source");
+        status = 1;
+    }
+    if (fclose(dst) != 0) {
+        perror("close destination");
+        status = 1;
+    }
+    if (fclose(src) != 0) {
+        perror("close source");
+        status = 1;
+    }
+    return status;
+}
+```
+
+`src` 表示源文件流，`dst` 表示目标文件流。这里使用 `"rb"`、`"wb"`：`b` 表示二进制模式，避免某些系统的文本模式做换行转换，便于原样复制字节；`"wb"` 仍有 `"w"` 的清空风险。
+
+Linux / macOS：
+
+```bash
+gcc -std=c11 -Wall -Wextra -Wpedantic file_copy_demo.c -o file_copy_demo
+./file_copy_demo
+```
+
+Windows PowerShell：
+
+```powershell
+gcc -std=c11 -Wall -Wextra -Wpedantic file_copy_demo.c -o file_copy_demo.exe
+.\file_copy_demo.exe
+```
+
+**输入：** 无需键盘输入，数据来自提前准备好的 `copy_source.txt`。**结果：** 成功时屏幕没有额外输出，`copy_result.txt` 与源文件的字节内容一致，程序返回 `0`；失败返回 `1` 并报错。复制失败时目标文件可能只写入了一部分，不能把它当作完整备份。
+
+空源文件会复制成空文件；源文件不存在时会直接报错，不会碰目标文件。可以把源文件改成长一点、带空格或空行的内容再试。示例一直用 `int ch`，先确认不是 `EOF` 才传给 `fputc`，因此不会把 EOF 标记写进文件。
+
+**记忆口令：打开先判空，读取用 `int`，写入看返回，用完要关闭；`"w"` 会清空，`"a"` 才追加。** 做在线评测题时，仍按题目要求使用标准输入输出或指定文件名，不要把这个练习文件名直接带进提交答案。
+
+想核对函数定义，可查 [C11 委员会草案 N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) 的 7.21.5.1（`fclose`）、7.21.5.3（`fopen`）、7.21.6.1–7.21.6.2（`fprintf`、`fscanf`）以及 7.21.7.1–7.21.7.4（`fgetc`、`fgets`、`fputc`、`fputs`）；初学时先掌握上面的示例即可。
 
 [回到阅读导航](#怎么读) · [返回仓库首页](README.md)
 
