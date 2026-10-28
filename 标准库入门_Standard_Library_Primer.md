@@ -56,6 +56,9 @@ This document uses a bilingual filename; the [filename index in the repository R
    - [先判断数据形式：字符、字符串、格式化、二进制数据块](#c-file-function-choice)<br>[Identify the data format first: characters, strings, formatted data, or binary blocks](#c-file-function-choice)
    - [二进制文件读写：wb、rb、fwrite 和 fread](#c-binary-file-io)<br>[Binary file I/O: wb, rb, fwrite, and fread](#c-binary-file-io)
 
+14. [差分学习卡：数组、累加、前缀和与区间修改](#difference-array)<br>[Difference-array learning card: arrays, accumulation, prefix sums, and interval updates](#difference-array)
+   - [完整 C++17 模板：非零初值、区间加减、统一还原](#difference-array-template)<br>[Complete C++17 template: nonzero initial values, interval additions/subtractions, and final reconstruction](#difference-array-template)
+
 <a id="start"></a>
 <a id="0-先学会运行一个示例"></a>
 ## 0. 先学会运行一个示例 / 0. Learn to Run an Example First
@@ -3391,6 +3394,351 @@ Try changing `n = 90` to `n = -7` and running again. To test an empty file, a fi
 想核对函数定义，可查 [C11 委员会草案 N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf) 的 7.21.5.1（`fclose`）、7.21.5.3（`fopen`）、7.21.6.1–7.21.6.2（`fprintf`、`fscanf`）、7.21.7.1–7.21.7.4（`fgetc`、`fgets`、`fputc`、`fputs`）以及 7.21.8.1–7.21.8.2（`fread`、`fwrite`）；初学时先掌握上面的示例即可。
 
 To check the function definitions, consult the [C11 committee draft N1570](https://www.open-std.org/jtc1/sc22/wg14/www/docs/n1570.pdf), sections 7.21.5.1 (`fclose`), 7.21.5.3 (`fopen`), 7.21.6.1–7.21.6.2 (`fprintf`, `fscanf`), 7.21.7.1–7.21.7.4 (`fgetc`, `fgets`, `fputc`, `fputs`), and 7.21.8.1–7.21.8.2 (`fread`, `fwrite`). As a beginner, focus first on mastering the examples above.
+
+[回到阅读导航](#怎么读) · [返回仓库首页](README.md)
+
+[Back to the Reading Guide](#怎么读) · [Back to the Repository Home](README.md)
+
+<a id="difference-array"></a>
+## 14. 选读：差分学习卡——从前置知识到区间修改 / 14. Optional: Difference-Array Learning Card—From Prerequisites to Range Updates
+
+**先记用途：对一排数做很多次“某个区间都加上同一个数”，全部修改结束后才需要最终数组，就可以考虑一维差分。** 本节从数组和累加讲起，只讲透一维差分，不要求先会树状数组或线段树。差分是算法技巧，不是一个叫作 `difference` 的标准库函数。
+
+**Use case: when many operations add the same value to every element in an interval, and you only need the final array after all updates, consider a one-dimensional difference array.** This section starts with arrays and accumulation and focuses on one dimension; no Fenwick-tree or segment-tree knowledge is required. A difference array is an algorithmic technique, not a standard-library function named `difference`.
+
+学习顺序：数组与下标 → 循环累加 → 前缀和与区间和 → 相邻作差 → 区间修改 → 统一还原。下面的题目、样例和练习均为自拟教学内容，不对应某个已确认的平台题号，也不代表在线评测通过。
+
+Learning order: arrays and indices → loop accumulation → prefix sums and interval sums → adjacent differences → interval updates → one final reconstruction. The task, examples, and exercises below are self-authored teaching material, not a confirmed platform problem or a claim of online-judge acceptance.
+
+### 14.1 前置一：数组、下标、闭区间 / 14.1 Prerequisite One: Arrays, Indices, and Inclusive Intervals
+
+- 变量保存一个值，数组保存按位置排列的一组值。`a[i]` 表示下标 `i` 处的值；`i` 是位置，`a[i]` 是内容。可先复习 [vector 入门](#vector)。<br>
+  A variable holds one value; an array holds values arranged by position. `a[i]` is the value at index `i`; `i` is the position and `a[i]` is its content. Review [the vector introduction](#vector) if needed.
+- C++ 的数组 / `vector` 实际下标从 `0` 开始。本节**约定把题目的第 1 到第 n 个数放在 `a[1]` 到 `a[n]`**，不是把 C++ 改成从 1 开始。`a[0]` 留作辅助位置，并设为 `0`。<br>
+  C++ array / `vector` indices actually start at `0`. Here, **we choose to store the problem's first through nth elements at `a[1]` through `a[n]`**; C++ itself remains zero-indexed. Reserve `a[0]` as a helper and set it to `0`.
+- `[l, r]` 是**两端都包含**的闭区间，共有 `r - l + 1` 个位置，满足 `1 <= l <= r <= n`。例如 `[2, 4]` 包含 `2、3、4`；`[3, 3]` 只含一个位置。<br>
+  `[l, r]` is an **inclusive interval**, containing `r - l + 1` positions with `1 <= l <= r <= n`. For example, `[2, 4]` contains `2, 3, 4`, and `[3, 3]` contains one position.
+- `for (int i = 1; i <= n; i++)` 从 `1` 遍历到 `n`，包含 `n`。`+=` 是复合赋值：`sum += value` 就是把 `sum + value` 存回 `sum`。<br>
+  `for (int i = 1; i <= n; i++)` visits `1` through `n`, including `n`. `+=` is compound assignment: `sum += value` stores `sum + value` back into `sum`.
+
+**容量一定先想边界。** `vector<long long> d(n + 2, 0);` 创建 `n + 2` 个值为 `0` 的元素，可用下标为 `0..n+1`。题目数据用 `1..n`，差分操作还会写 `r+1`，最大是 `n+1`。只开 `n+1` 个元素，最大合法下标是 `n`，仍然不够。
+
+**Choose capacity by checking the boundaries first.** `vector<long long> d(n + 2, 0);` creates `n + 2` zero-initialized elements, indexed `0..n+1`. Problem data occupies `1..n`, but difference updates also write to `r+1`, which can be `n+1`. Allocating only `n+1` elements leaves `n` as the largest valid index and is still insufficient.
+
+### 14.2 前置二：累加不等于已经存好了前缀和 / 14.2 Prerequisite Two: Accumulation Versus Stored Prefix Sums
+
+假设 `a[1..5] = 2, 4, 1, 3, 5`。下面是**片段，不是独立程序**，假设数组和 `n` 已准备好：
+
+Suppose `a[1..5] = 2, 4, 1, 3, 5`. The following is **a snippet, not a standalone program**; assume the array and `n` are already available:
+
+```cpp
+long long sum = 0;
+for (int i = 1; i <= n; i++) {
+    sum += a[i];
+}
+```
+
+循环里 `sum` 依次变成 `2、6、7、10、15`；循环结束后只保留一个总和 `15`。**累加**是执行相加的过程；**前缀和**是从开头到某个位置的和。如果需要以后查询不同位置的前缀和，就把每一步都存下来：
+
+During the loop, `sum` becomes `2, 6, 7, 10, 15`; only the total `15` remains afterward. **Accumulation** is the process of adding values; a **prefix sum** is a sum from the beginning through a position. To query different prefixes later, store each step:
+
+```cpp
+vector<long long> s(n + 2, 0);  // s[0] = 0
+for (int i = 1; i <= n; i++) {
+    s[i] = s[i - 1] + a[i];
+}
+// 假设 1 <= l <= r <= n / Assume 1 <= l <= r <= n.
+long long interval_sum = s[r] - s[l - 1];
+```
+
+| 下标 i / Index i | 0 | 1 | 2 | 3 | 4 | 5 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| 原数组 a / Original a | 0（辅助 / helper） | 2 | 4 | 1 | 3 | 5 |
+| 前缀和 s / Prefix sums s | 0 | 2 | 6 | 7 | 10 | 15 |
+
+`s[r]` 包含 `a[1]` 到 `a[r]`，减掉 `s[l-1]` 就去掉了区间左边的部分，留下 `a[l] + ... + a[r]`。例如 `[2,4]` 的区间和是 `s[4] - s[1] = 10 - 2 = 8`；若 `l=1`，公式仍是 `s[r] - s[0]`。不是 `s[r] - s[l]`，否则会漏掉 `a[l]`。
+
+`s[r]` contains `a[1]` through `a[r]`; subtracting `s[l-1]` removes the part before the interval, leaving `a[l] + ... + a[r]`. For `[2,4]`, the sum is `s[4] - s[1] = 10 - 2 = 8`. When `l=1`, the same formula uses `s[r] - s[0]`. Do not use `s[r] - s[l]`, which would omit `a[l]`.
+
+静态数组建一次前缀和要 `O(n)`，之后每次区间求和是 `O(1)`。但若修改了 `a`，旧的 `s` 不会自动跟着改变，不能继续当作更新后的前缀和使用。
+
+Building prefix sums for a static array takes `O(n)`, after which each interval-sum query takes `O(1)`. If `a` changes, the old `s` does not update automatically and cannot be treated as the new prefix sums.
+
+### 14.3 相邻作差，再用累加还原 / 14.3 Take Adjacent Differences, Then Reconstruct by Accumulating
+
+约定 `a[0] = 0`，定义：
+
+Set `a[0] = 0` and define:
+
+```text
+d[i] = a[i] - a[i - 1]    (1 <= i <= n)
+```
+
+`d[i]` 记录“走到这一格，数值相对上一格变了多少”，**不是这一格本身的值**。仍用上面的数组：
+
+`d[i]` records “how much the value changes from the previous position to this one,” **not the value at this position itself**. Using the same array:
+
+| 下标 i / Index i | 1 | 2 | 3 | 4 | 5 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 原数组 a / Original a | 2 | 4 | 1 | 3 | 5 |
+| 差分 d / Differences d | 2 | 2 | -3 | 2 | 2 |
+| d 的前缀和 / Prefix sums of d | 2 | 4 | 1 | 3 | 5 |
+
+为什么能还原？把相邻差展开，中间项会两两抵消（望远镜求和）：
+
+Why does reconstruction work? Expanding the adjacent differences makes the middle terms cancel in pairs (telescoping):
+
+```text
+d[1] + d[2] + ... + d[i]
+= (a[1] - a[0]) + (a[2] - a[1]) + ... + (a[i] - a[i-1])
+= a[i] - a[0]
+= a[i]
+```
+
+所以，“对 `a` 作相邻差分”得到 `d`，“对 `d` 求前缀和”就还原 `a`。同样写 `sum += ...`，加的对象不同，含义就不同：`sum += a[i]` 得到原数组的前缀和；`sum += d[i]` 得到原数组的第 `i` 个值。后者不需要再保存一个前缀和数组，边累加边输出即可。
+
+Thus, adjacent differences of `a` produce `d`, and prefix sums of `d` reconstruct `a`. The same `sum += ...` syntax has different meanings depending on the input: `sum += a[i]` gives a prefix sum of the original array, whereas `sum += d[i]` gives the original value at position `i`. The latter needs no separate prefix-sum array if you accumulate and print each value immediately.
+
+### 14.4 区间加法为什么只改两个位置 / 14.4 Why an Interval Addition Changes Only Two Positions
+
+要把闭区间 `[l,r]` 内每个数都加 `x`，直接改原数组需要遍历这个区间。差分只需要：
+
+To add `x` to every value in the inclusive interval `[l,r]`, directly updating the original array requires visiting the interval. A difference array needs only:
+
+```cpp
+d[l] += x;
+d[r + 1] -= x;
+```
+
+从定义看：左端 `a[l]` 加了 `x`，而 `a[l-1]` 没加，所以 `d[l]` 加 `x`；区间内部相邻两项都加 `x`，相减时 `x` 抵消；区间右侧第一格 `a[r+1]` 没加，但它前面的 `a[r]` 加了，所以 `d[r+1]` 减 `x`。区间外其他差分不变。
+
+From the definition: at the left boundary, `a[l]` increases by `x` but `a[l-1]` does not, so `d[l]` increases by `x`. Inside the interval, both neighboring values increase by `x`, so the increments cancel in their difference. Immediately after the interval, `a[r+1]` stays unchanged while `a[r]` increases, so `d[r+1]` decreases by `x`. Other differences outside the interval stay unchanged.
+
+也可以从还原时的前缀和理解：
+
+You can also understand this through the reconstruction prefix sums:
+
+| 还原到的位置 i / Reconstructed position i | 本次操作对累加值的影响 / Contribution of this operation |
+| --- | --- |
+| `i < l` | 两个标记都没遇到，增加 `0`<br>Neither marker has been reached: add `0` |
+| `l <= i <= r` | 只遇到 `+x`，增加 `x`<br>Only `+x` has been reached: add `x` |
+| `i >= r+1` | `+x` 和 `-x` 都遇到，合计增加 `0`<br>Both `+x` and `-x` have been reached: net addition `0` |
+
+**口诀：从 `l` 开始生效，从 `r+1` 开始取消。** 取消不是撤销区间内的加法，而是不让影响继续传播到区间右边。写成 `d[r] -= x` 会让第 `r` 个数少加一次。
+
+**Memory aid: start the effect at `l`; cancel it starting at `r+1`.** Cancellation does not undo additions inside the interval; it stops the effect from spreading farther right. Writing `d[r] -= x` would exclude position `r` from the addition.
+
+当 `r=n` 时仍写 `d[n+1] -= x`；它是输出区间之外的结束标记，不会被 `i <= n` 的还原循环输出。本模板只把 `d[1..n]` 初始化为原数组的相邻差，`d[n+1]` 初始为 `0`，不把这个辅助槽当成要输出的第 `n+1` 个原数组元素。
+
+When `r=n`, still write `d[n+1] -= x`. It is an end marker outside the output interval and is not printed by the reconstruction loop with `i <= n`. This template initializes only `d[1..n]` from adjacent differences of the original array; `d[n+1]` starts at `0` and is not an extra original-array value to print.
+
+减法不需要新公式：区间减 `3` 就令 `x=-3`，仍执行同样两行。多次修改可以叠加，重叠部分会收到多次增量；对同一区间先加 `x` 再加 `-x`，两次影响抵消。`l=r`、`l=1`、`r=n` 都不需要特判。
+
+Subtraction needs no new formula: to subtract `3`, use `x=-3` with the same two lines. Multiple updates accumulate, including repeated contributions in overlapping regions. Adding `x` and then `-x` to the same interval cancels out. No special case is needed for `l=r`, `l=1`, or `r=n`.
+
+### 14.5 先分清初始数组是不是全零 / 14.5 First Check Whether the Initial Array Is All Zero
+
+| 情况 / Situation | 修改前怎么准备 / Preparation before updates | 修改后怎么还原 / Reconstruction afterward |
+| --- | --- | --- |
+| 初始数组全是 `0`<br>Initial array is all zero | `d` 全部初始化为 `0`<br>Initialize every element of `d` to `0` | 累加 `d`，就是最终值<br>Accumulate `d` to obtain final values |
+| 给了非零初始数组，本节主模板<br>A supplied, possibly nonzero array: this section's main template | 先令 `a[0]=0`，再做 `d[i]=a[i]-a[i-1]`<br>Set `a[0]=0`, then build `d[i]=a[i]-a[i-1]` | 累加 `d`，已经包含初始值<br>Accumulate `d`; the initial values are already included |
+| 只用 `d` 记录额外增量，另一种写法<br>Alternative: use `d` only for extra increments | 保留原数组 `a`，`d` 全部置 `0`<br>Keep the original `a` and initialize all of `d` to `0` | 累加得到 `delta`，输出 `a[i]+delta`<br>Accumulate into `delta` and print `a[i]+delta` |
+
+**后两种只能选一种，不能混用。** 已经把原数组差分放进 `d`，还原时再加 `a[i]` 会把初始值算两遍；反过来，`d` 从零开始只记录修改，却只输出累加值，会漏掉初始值。若题目没有提供初始数组且说明初始全零，就不要额外读取 n 个数；第 14.7 节主模板的输入格式则明确包含初始数组。
+
+**Choose one of the last two methods; do not mix them.** If `d` already contains the original array's differences, adding `a[i]` again during reconstruction double-counts the initial values. Conversely, if `d` starts at zero and records only updates, printing only its accumulated value omits the initial values. If a problem specifies an initially zero array and supplies no initial values, do not read an extra n numbers; the main template in Section 14.7 explicitly does read an initial array.
+
+### 14.6 手算完整过程 / 14.6 Work Through the Entire Process
+
+初始数组为 `2 4 1 3 5`，依次进行三次修改：`[2,4]` 加 `3`，`[1,3]` 减 `2`，`[5,5]` 加 `4`。下面同时追踪原数组（便于理解）与实际维护的差分：
+
+Start with `2 4 1 3 5`. Apply three updates: add `3` to `[2,4]`, subtract `2` from `[1,3]`, and add `4` to `[5,5]`. The table tracks both the conceptual original array and the difference array actually maintained:
+
+| 步骤 / Step | 修改的标记 / Changed markers | d[1..6]（末位是辅助槽） / d[1..6] (last entry is a helper) | 当前数组 a[1..5] / Current array a[1..5] |
+| --- | --- | --- | --- |
+| 初始化 / Initialize | `d[i]=a[i]-a[i-1]`，`d[6]=0` | `2 2 -3 2 2 0` | `2 4 1 3 5` |
+| `[2,4]` 加 `3` / Add `3` | `d[2]+=3; d[5]-=3;` | `2 5 -3 2 -1 0` | `2 7 4 6 5` |
+| `[1,3]` 加 `-2` / Add `-2` | `d[1]+=-2; d[4]-=-2;` | `0 5 -3 4 -1 0` | `0 5 2 6 5` |
+| `[5,5]` 加 `4` / Add `4` | `d[5]+=4; d[6]-=4;` | `0 5 -3 4 3 -4` | `0 5 2 6 9` |
+
+真正运行时，不必每次都还原右栏。全部修改完成后，只遍历一次 `d[1..5]`：
+
+In the actual algorithm, do not reconstruct the rightmost column after each update. Once all updates are recorded, traverse `d[1..5]` only once:
+
+```text
+sum = 0
+i=1: sum = 0 + 0  = 0
+i=2: sum = 0 + 5  = 5
+i=3: sum = 5 - 3  = 2
+i=4: sum = 2 + 4  = 6
+i=5: sum = 6 + 3  = 9
+```
+
+因此输出 `0 5 2 6 9`。注意 `d[3]=-3` 不等于最终 `a[3]` 是 `-3`；只有累加到当前位置，才得到最终值 `2`。
+
+The output is therefore `0 5 2 6 9`. Notice that `d[3]=-3` does not mean the final `a[3]` is `-3`; accumulating through that position produces its final value, `2`.
+
+<a id="difference-array-template"></a>
+### 14.7 完整 C++17 模板：先记录修改，再统一还原 / 14.7 Complete C++17 Template: Record Updates, Then Reconstruct Once
+
+**自拟输入约定：** 第一行 `n m`，第二行 n 个初始整数，随后 m 行 `l r x`，表示对 `[l,r]` 每个数加 `x`。本教学例限定 `1 <= n <= 200000`、`0 <= m <= 200000`、`1 <= l <= r <= n`，初始值和 `x` 的绝对值不超过 `10^12`；这些限制下本程序的差分、累加和最终值都在 `long long` 范围内。假设输入完整且满足约定，不把本模板当作任意外部输入的校验器。
+
+**Self-authored input contract:** The first line contains `n m`, the second contains n initial integers, and the next m lines contain `l r x`, meaning add `x` to each value in `[l,r]`. For this teaching example, `1 <= n <= 200000`, `0 <= m <= 200000`, `1 <= l <= r <= n`, and the absolute values of initial elements and `x` are at most `10^12`. Under these bounds, this program's differences, running values, and final elements fit in `long long`. Assume complete input satisfying this contract; this template is not a validator for arbitrary external input.
+
+**输出：** 修改后的 n 个数，以一个空格分隔，最后换行。保存下面的完整代码为 `difference_array_demo.cpp`，单独编译运行；它不依赖非标准的 `bits/stdc++.h`。
+
+**Output:** The n updated values separated by single spaces, followed by a newline. Save the complete code below as `difference_array_demo.cpp` and compile it separately. It does not depend on the nonstandard `bits/stdc++.h` header.
+
+```cpp
+#include <iostream>
+#include <vector>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n, m;
+    if (!(cin >> n >> m)) {
+        return 0;
+    }
+
+    // 可用下标 0..n+1；题目数据放在 1..n。
+    // Valid indices: 0..n+1; problem data occupies 1..n.
+    vector<long long> a(n + 2, 0);
+    vector<long long> d(n + 2, 0);
+    for (int i = 1; i <= n; i++) {
+        cin >> a[i];
+    }
+
+    // a[0] 已是 0；把非零初始数组也计入差分。
+    // a[0] is already 0; include the supplied initial array.
+    for (int i = 1; i <= n; i++) {
+        d[i] = a[i] - a[i - 1];
+    }
+
+    // 先记录所有区间修改 / Record all interval updates first.
+    for (int i = 0; i < m; i++) {
+        int l, r;
+        long long x;
+        cin >> l >> r >> x;
+        d[l] += x;
+        d[r + 1] -= x;
+    }
+
+    // 全部修改完成后，再统一还原 / Reconstruct after all updates.
+    long long sum = 0;
+    for (int i = 1; i <= n; i++) {
+        sum += d[i];
+        if (i > 1) {
+            cout << ' ';
+        }
+        cout << sum;
+    }
+    cout << '\n';
+    return 0;
+}
+```
+
+Linux / macOS：
+
+```bash
+g++ -std=c++17 -Wall -Wextra -Wpedantic difference_array_demo.cpp -o difference_array_demo
+./difference_array_demo
+```
+
+Windows PowerShell：
+
+```powershell
+g++ -std=c++17 -Wall -Wextra -Wpedantic difference_array_demo.cpp -o difference_array_demo.exe
+.\difference_array_demo.exe
+```
+
+输入（对应上面的手算）：
+
+Input (matching the walkthrough):
+
+```text
+5 3
+2 4 1 3 5
+2 4 3
+1 3 -2
+5 5 4
+```
+
+输出：
+
+Output:
+
+```text
+0 5 2 6 9
+```
+
+这保留了你原来“两段循环”的逻辑：先 `d[l] += x; d[r+1] -= x;` 记录所有操作，再 `sum += d[i]` 输出最终值。补上的内容是**数组准备、初值差分、完整程序结构**；把原来的 `int l, r, x` 拆成 `int l, r; long long x;`，并让输出没有行末多余空格。只把 `sum` 改为 `long long` 不够：若 `d` 或输入的 `x` 先在 `int` 中溢出，后面再用 `long long` 也救不回来；本模板的 `a`、`d`、`x`、`sum` 都使用 `long long`。换题时仍要根据约束确认中间值也不会超出它的范围。
+
+This preserves your original two-loop logic: first record all operations using `d[l] += x; d[r+1] -= x;`, then print final values using `sum += d[i]`. The additions are **array preparation, initial differences, and the complete program structure**. The original `int l, r, x` becomes `int l, r; long long x;`, and output avoids a trailing space. Making only `sum` a `long long` is insufficient: if `d` or input `x` overflows an `int` first, later using `long long` cannot recover it. This template uses `long long` for `a`, `d`, `x`, and `sum`. For a different problem, still check that all intermediate values fit its range.
+
+### 14.8 复杂度与适用边界 / 14.8 Complexity and Limits
+
+这里 `n` 是数组长度，`m` 是修改次数。朴素方法对每个区间逐个加，单次最坏 `O(n)`，总计最坏 `O(nm)`。差分建初值 `O(n)`，每次修改只改两个位置 `O(1)`，m 次是 `O(m)`，最后还原 `O(n)`，所以**总时间 `O(n+m)`，额外空间 `O(n)`**。
+
+Here, `n` is the array length and `m` is the number of updates. The naive method visits every element of each interval: worst-case `O(n)` per update and `O(nm)` overall. Difference-array initialization takes `O(n)`, each update takes `O(1)` by changing two positions, all updates take `O(m)`, and reconstruction takes `O(n)`. Thus, **total time is `O(n+m)` and auxiliary space is `O(n)`**.
+
+**“先全部修改，后统一还原”是本模板的离线批量处理方式。** 输入一条修改就能记录一条，不必把全部操作另存起来；关键是只在所有修改后读取最终结果。不能在修改循环里直接输出 `d[i]` 当作答案，也不能每改一次就还原整个数组后还宣称总复杂度是 `O(n+m)`。
+
+**“Apply all updates, then reconstruct once” is this template's offline batch-processing model.** You can record an update as soon as it is read; you need not store the entire operation list separately. The key is that results are requested only after all updates. Do not print `d[i]` as if it were a final value during the update loop, or reconstruct the entire array after every update while still claiming `O(n+m)` total time.
+
+如果修改与查询交错发生，例如“改一次、立刻问某点或某区间当前值”，简单差分仍可每次重新累加求答案，但不再具有这里的批量效率；应根据题目学习适合动态查询的数据结构。这张卡不展开树状数组、线段树或二维差分。区间赋值、区间乘法也不能直接套本节的区间加法公式。
+
+If updates and queries are interleaved—for example, update once and immediately ask for a current point value or interval sum—you could recompute answers by accumulation, but you lose the efficiency of this batch approach. Learn a structure suited to the problem's dynamic queries. This card does not expand into Fenwick trees, segment trees, or two-dimensional differences. Interval assignment and multiplication also cannot directly use this interval-addition formula.
+
+### 14.9 易错点检查 / 14.9 Pitfall Checklist
+
+- [ ] 闭区间取消位置是 `r+1`，不是 `r`；`r=n` 时 `d[n+1]` 不越界。<br>
+  Cancel an inclusive interval at `r+1`, not `r`; ensure `d[n+1]` is valid when `r=n`.
+- [ ] `a[0]=0`，`d` 与 `sum` 已初始化；多组数据每组重新准备，不能带入上一组标记。<br>
+  Set `a[0]=0` and initialize `d` and `sum`; for multiple cases, reset everything rather than retain earlier markers.
+- [ ] 题目有初始数组就读入并建差分；题目说全零且没有这行输入，就不要误读下一行修改。<br>
+  Read and initialize differences when an initial array is supplied; for an initially zero array with no such input line, do not accidentally consume the first update as initial values.
+- [ ] 没把初始值漏算或算两遍，没把差分值直接当最终数组值。<br>
+  Do not omit or double-count initial values, and do not mistake difference values for final array values.
+- [ ] `x` 可以是负数；用 `+=` / `-=` 叠加，不用 `=` 覆盖前面的修改。<br>
+  Allow negative `x`; accumulate with `+=` / `-=` instead of overwriting earlier updates with `=`.
+- [ ] `d`、`x`、`sum` 和参与作差的初始值类型足够宽；“最终答案不大”不代表中间计算不会溢出。<br>
+  Use sufficiently wide types for `d`, `x`, `sum`, and the initial values used in subtraction; a small final answer does not guarantee safe intermediate arithmetic.
+- [ ] 两个循环按顺序执行，`sum=0` 放在还原循环外；只输出 `1..n`，不输出辅助位置。<br>
+  Execute the two loops in order, initialize `sum=0` outside the reconstruction loop, and print only `1..n`, not helper positions.
+- [ ] 手算验证后，还要实际编译并检查 `m=0`、`n=1`、单点、整个区间、负增量、重叠和超出常见 32 位整数范围的值。<br>
+  After hand-checking, compile and test `m=0`, `n=1`, singleton intervals, the full range, negative increments, overlapping updates, and values beyond the usual 32-bit integer range.
+
+### 14.10 小练习：先做再看答案 / 14.10 Short Exercises: Try Before Revealing the Answers
+
+1. 对 `a[1..4] = 3, 1, 4, 2`，分别求前缀和 `s`、`[2,4]` 的区间和和差分 `d`，再从 `d` 还原。<br>
+   For `a[1..4] = 3, 1, 4, 2`, find prefix sums `s`, the sum on `[2,4]`, and differences `d`; then reconstruct from `d`.
+2. 初始全零、`n=5`，对 `[2,5]` 加 `3`，再对 `[3,3]` 加 `-5`。写出最终 `d[1..6]` 和数组。<br>
+   Start with five zeros, add `3` to `[2,5]`, then add `-5` to `[3,3]`. Find the final `d[1..6]` and array.
+3. 初始 `a=[7]`、`n=1`，对 `[1,1]` 加 `-10`。会修改哪两个差分位置？输出几个数？若 `m=0` 呢？<br>
+   Start with `a=[7]` and `n=1`, then add `-10` to `[1,1]`. Which two difference positions change? How many numbers are printed? What if `m=0` instead?
+4. 用完整模板运行 `n=2, m=2`、初始 `0 0`，两次都对 `[1,2]` 加 `3000000000`。为什么不能只让 `sum` 使用 `long long`？<br>
+   Run the complete template with `n=2, m=2`, initial values `0 0`, and two updates adding `3000000000` to `[1,2]`. Why is making only `sum` a `long long` insufficient?
+
+<details>
+<summary>展开参考答案 / Expand reference answers</summary>
+
+1. `s[0..4] = 0, 3, 4, 8, 10`；区间和 `s[4]-s[1]=10-3=7`；`d[1..4] = 3, -2, 3, -2`；累加后是 `3, 1, 4, 2`。<br>
+   `s[0..4] = 0, 3, 4, 8, 10`; interval sum `s[4]-s[1]=10-3=7`; `d[1..4] = 3, -2, 3, -2`; accumulation reconstructs `3, 1, 4, 2`.
+2. `d[1..6] = 0, 3, -5, 5, 0, -3`，最终数组为 `0, 3, -2, 3, 3`。`d[6]` 是结束标记，不输出。<br>
+   `d[1..6] = 0, 3, -5, 5, 0, -3`, producing `0, 3, -2, 3, 3`. `d[6]` is an end marker and is not printed.
+3. 初始 `d[1]=7, d[2]=0`；修改后 `d[1]=-3, d[2]=10`。只输出一个数 `-3`。若没有任何修改，即 `m=0`，则还原并输出初始值 `7`。<br>
+   Initially `d[1]=7, d[2]=0`; afterward `d[1]=-3, d[2]=10`. Print only one number, `-3`. With no updates (`m=0`), reconstruct and print the initial value `7`.
+4. 输出 `6000000000 6000000000`。单次输入的 `3000000000` 就已超过常见 32 位有符号 `int` 的上限；`x`、累加修改的 `d` 与 `sum` 都必须能保存这些值。<br>
+   Output `6000000000 6000000000`. Even a single input `3000000000` exceeds the usual signed 32-bit `int` maximum; `x`, accumulated differences in `d`, and `sum` must all hold these values.
+
+</details>
+
+**最后用一句话复述：差分记“相邻变化”，区间加法只改“开始和结束标记”，最后对差分求前缀和就得到最终数组。**
+
+**One-sentence recap: differences store adjacent changes; interval addition changes only the start and end markers; prefix sums of those differences yield the final array.**
 
 [回到阅读导航](#怎么读) · [返回仓库首页](README.md)
 
