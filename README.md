@@ -37,6 +37,10 @@ For revision, see the [categorized exercise catalog](docs/exercises/README.md): 
 
 New to the standard library? Start with the [C++ standard library primer](标准库入门_Standard_Library_Primer.md), covering `vector`, sorting, deduplication, and whole-line input. It now includes [strings and references](标准库入门_Standard_Library_Primer.md#char-reference), [binary search and boundary lookup](标准库入门_Standard_Library_Primer.md#binary-search), [C file operations](标准库入门_Standard_Library_Primer.md#c-file-io), and [binary file I/O](标准库入门_Standard_Library_Primer.md#c-binary-file-io). Compile the C file-operation examples separately as C11 and the other complete examples as C++17.
 
+学习区间修改，可阅读[差分学习卡](标准库入门_Standard_Library_Primer.md#difference-array)：从数组与下标、累加、前缀和及区间和开始，再推导差分、非零初值、区间加减与统一还原，附完整 C++17 模板、手算过程和自测练习。
+
+For interval updates, read the [difference-array learning card](标准库入门_Standard_Library_Primer.md#difference-array): start with arrays and indices, accumulation, prefix sums, and interval sums; then derive differences, nonzero initialization, interval addition/subtraction, and final reconstruction, with a complete C++17 template, walkthrough, and self-check exercises.
+
 <a id="练习索引"></a>
 ## 练习索引 / Exercise Index
 
