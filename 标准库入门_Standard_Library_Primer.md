@@ -59,6 +59,9 @@ This document uses a bilingual filename; the [filename index in the repository R
 14. [差分学习卡：数组、累加、前缀和与区间修改](#difference-array)<br>[Difference-array learning card: arrays, accumulation, prefix sums, and interval updates](#difference-array)
    - [完整 C++17 模板：非零初值、区间加减、统一还原](#difference-array-template)<br>[Complete C++17 template: nonzero initial values, interval additions/subtractions, and final reconstruction](#difference-array-template)
 
+15. [滑动窗口学习卡：右边加入，超限就缩左边](#sliding-window)<br>[Sliding-window learning card: add right, shrink left](#sliding-window)
+   - [完整 C++17 示例：和不超过上限的最长非空子数组](#sliding-window-template)<br>[Complete C++17 example: longest nonempty subarray within a sum bound](#sliding-window-template)
+
 <a id="start"></a>
 <a id="0-先学会运行一个示例"></a>
 ## 0. 先学会运行一个示例 / 0. Learn to Run an Example First
@@ -3739,6 +3742,198 @@ If updates and queries are interleaved—for example, update once and immediatel
 **最后用一句话复述：差分记“相邻变化”，区间加法只改“开始和结束标记”，最后对差分求前缀和就得到最终数组。**
 
 **One-sentence recap: differences store adjacent changes; interval addition changes only the start and end markers; prefix sums of those differences yield the final array.**
+
+[回到阅读导航](#怎么读) · [返回仓库首页](README.md)
+
+[Back to the Reading Guide](#怎么读) · [Back to the Repository Home](README.md)
+
+<a id="sliding-window"></a>
+## 15. 滑动窗口学习卡：右边加入，超限就缩左边 / 15. Sliding-window Learning Card: Add Right, Shrink Left
+
+这张卡解释你的双指针片段，并补成“和不超过 `target` 的最长非空连续子数组”完整示例。滑动窗口是算法写法，不是标准库函数；先理解 [vector 与下标](#vector) 和 [long long 求和](#sum)。本节使用 **0 基下标**，不同于上一节差分的 1 基下标。
+
+This card explains your two-pointer snippet and completes it for the longest nonempty contiguous subarray with sum at most `target`. Sliding windows are an algorithmic pattern, not a standard-library function. First understand [vector and indices](#vector) and [long long summation](#sum). This section uses **zero-based indices**, unlike the preceding difference-array card.
+
+### 15.1 适用条件与原片段 / 15.1 Prerequisites and Original Snippet
+
+**所有 `a[i] >= 0`，且进入窗口循环前 `target >= 0`。** 加入右边元素，和不会变小；移除左边元素，和不会变大。这种单调性让移除的位置不必回头找。允许零，不要求严格正数，也不需要排序；排序会改变原来的连续子数组。
+
+**Every `a[i] >= 0`, and `target >= 0` before entering the window loop.** Adding on the right cannot decrease the sum; removing on the left cannot increase it. This monotonicity means removed positions never need revisiting. Zeros are allowed; strictly positive values and sorting are not required. Sorting changes the original contiguous subarrays.
+
+**片段（保留你的原写法） / Snippet (your original pattern)：**
+
+```cpp
+int l = 0;
+long long sum = 0;
+
+for (int r = 0; r < n; r++)
+{
+    sum += a[r];          // 加入右边的新元素
+
+    while (sum > target)
+    {
+        sum -= a[l];      // 移除左边的旧元素
+        l++;
+    }
+
+    // 检查当前窗口是否符合题目要求
+}
+```
+
+注释对应：加入右边的新元素 / add the new rightmost element；移除左边的旧元素 / remove the old leftmost element；检查当前窗口是否符合题目要求 / check the current window against the problem's requirements。
+
+| 变量 / Variable | 含义 / Meaning |
+| --- | --- |
+| `l` | 左端下标，不是元素值<br>Left endpoint index, not its value |
+| `r` | 本轮加入的右端下标<br>Right endpoint index added this iteration |
+| `sum` | 当前窗口内元素之和<br>Sum of the current window |
+| `target` | 允许的和的上限<br>Maximum allowed sum |
+
+先 `sum -= a[l]`，再 `l++`；反过来会删错元素。`while` 不能随意改成 `if`，一次加入后可能要移除多个元素。`sum` 和 `l` 在外层循环前初始化，不要每轮重新置零。
+
+Subtract `a[l]` before incrementing `l`; reversing the order removes the wrong element. Do not replace `while` with `if`: one addition may need several removals. Initialize `sum` and `l` before the outer loop, not on every iteration.
+
+### 15.2 收缩后的不变量 / 15.2 Invariant After Shrinking
+
+每次 `while` 结束后，保持这个**不变量**（每轮都成立的性质）：`sum` 等于 `[l,r]` 的元素和，且 `sum <= target`。`l<=r` 时窗口非空，长度为 `r-l+1`；`l=r+1` 时窗口为空，和与长度都是 `0`。
+
+After each `while`, the **invariant** (a property true every iteration) is that `sum` equals the sum on `[l,r]` and `sum <= target`. When `l<=r`, the window is nonempty with length `r-l+1`; when `l=r+1`, it is empty with sum and length both `0`.
+
+注释处只保证和不超过上限，并不是自动求出了任何题目的答案。若求**最长非空连续子数组长度**，就在这里更新最大长度。对固定 `r`，停下的 `l` 是最早可行左端；更早舍弃的左端当时已经超限，后来加入非负数不会使它重新可行，所以不会漏掉更长答案。
+
+The comment only guarantees the upper bound, not a solution to every problem. For the **longest nonempty contiguous-subarray length**, update the maximum length here. For each fixed `r`, the stopping `l` is the earliest feasible left endpoint. Earlier discarded endpoints already exceeded the bound; adding nonnegative values cannot make them feasible again, so no longer answer is missed.
+
+### 15.3 手算：一次加入，可能多次移除 / 15.3 Walkthrough: One Addition, Several Removals
+
+取 `a=[2,1,3,0,2]`、`target=4`。窗口是收缩后的状态，`best` 是目前最大长度。
+
+Take `a=[2,1,3,0,2]`, `target=4`. Windows are shown after shrinking; `best` is the largest length found so far.
+
+| `r` / 加入值 / Added value | 加入后的和 / Sum after adding | 移除过程 / Removals | `l` | 最终窗口 / Final window | `sum` | `best` |
+| --- | --- | --- | --- | --- | --- | --- |
+| `0` / `2` | `2` | 无 / None | `0` | `[2]` | `2` | `1` |
+| `1` / `1` | `3` | 无 / None | `0` | `[2,1]` | `3` | `2` |
+| `2` / `3` | `6` | 减 `2` → `4` / Subtract `2` → `4` | `1` | `[1,3]` | `4` | `2` |
+| `3` / `0` | `4` | 无 / None | `1` | `[1,3,0]` | `4` | `3` |
+| `4` / `2` | `6` | 减 `1` → `5`，再减 `3` → `2` / Subtract `1` → `5`, then `3` → `2` | `3` | `[0,2]` | `2` | `3` |
+
+答案为 `3`。最后一轮只用 `if` 移除一次，和仍为 `5`，不合法。
+
+The answer is `3`. Removing only once with `if` in the last iteration leaves sum `5`, still invalid.
+
+<a id="sliding-window-template"></a>
+### 15.4 完整 C++17 示例 / 15.4 Complete C++17 Example
+
+**自拟输入约定：** 第一行 `n target`，随后 n 个整数。限定 `0<=n<=200000`、`0<=a[i]<=10^12`、`-10^12<=target<=10^12`，假设输入完整且满足约定。输出和不超过 `target` 的最长非空连续子数组长度；无解输出 `0`（无解标记，不是把空窗口当作非空答案）。
+
+**Self-authored input contract:** Read `n target`, then n integers. Assume complete input with `0<=n<=200000`, `0<=a[i]<=10^12`, and `-10^12<=target<=10^12`. Output the longest nonempty contiguous-subarray length with sum at most `target`, or `0` if none exists. This is a no-solution marker, not accepting an empty window as nonempty.
+
+```cpp
+#include <algorithm>
+#include <iostream>
+#include <vector>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    long long target;
+    if (!(cin >> n >> target)) {
+        return 0;
+    }
+    vector<long long> a(n);
+    for (int i = 0; i < n; i++) {
+        cin >> a[i];
+    }
+
+    // 非负元素的和不会为负；在窗口循环前处理。
+    // Nonnegative elements cannot have a negative sum; guard before the loop.
+    if (target < 0) {
+        cout << 0 << '\n';
+        return 0;
+    }
+
+    int l = 0;
+    int best = 0;
+    long long sum = 0;
+    for (int r = 0; r < n; r++) {
+        sum += a[r];  // 加入右端 / Add the right endpoint.
+        while (sum > target) {
+            sum -= a[l];  // 先减旧左端 / Remove the old left endpoint first.
+            l++;
+        }
+        if (l <= r) {  // 只用非空窗口更新 / Update only from nonempty windows.
+            best = max(best, r - l + 1);
+        }
+    }
+    cout << best << '\n';
+    return 0;
+}
+```
+
+保存为 `sliding_window_demo.cpp`，单独编译运行；Windows 可将输出文件名改成 `.exe`。
+
+Save as `sliding_window_demo.cpp` and compile independently; on Windows, use an `.exe` output filename.
+
+```bash
+g++ -std=c++17 -Wall -Wextra -Wpedantic sliding_window_demo.cpp -o sliding_window_demo
+./sliding_window_demo
+```
+
+输入 / Input：
+
+```text
+5 4
+2 1 3 0 2
+```
+
+输出 / Output：
+
+```text
+3
+```
+
+`a`、`target`、`sum` 均用 `long long`。约定下所有元素总和至多 `2×10^17`，中间窗口和也不超过它。换题要检查 **`sum += a[r]` 收缩之前**会不会溢出：收缩后 `sum<=target` 不代表中间值安全，`long long` 也不是无限大。
+
+`a`, `target`, and `sum` all use `long long`. Under the contract, the total of all elements is at most `2×10^17`, also bounding intermediate window sums. For another problem, check overflow in **`sum += a[r]` before shrinking**: `sum<=target` afterward does not guarantee safe intermediate values, and `long long` is not unlimited.
+
+### 15.5 为什么嵌套循环仍是 O(n) / 15.5 Why Nested Loops Still Take O(n)
+
+`r` 从 `0` 到 `n-1`，每个元素最多加入一次。`l` 只向右，不退回；整个算法中每个元素最多移除一次。不是“每轮移除 n 次”，而是所有 `while` 加起来至多 n 次，因此**总时间 `O(n)`**。数组占 `O(n)` 空间；在已保存的数组之外，窗口只有几个变量，**额外空间 `O(1)`**。
+
+`r` goes from `0` to `n-1`, adding each element at most once. `l` only moves right, removing each element at most once overall. The `while` does not execute n times every iteration: all executions together total at most n, so **total time is `O(n)`**. The array takes `O(n)` space; beyond that stored array, the window uses a few variables, or **`O(1)` auxiliary space**.
+
+### 15.6 边界、反例与不同题型 / 15.6 Boundaries, Counterexamples, and Different Problems
+
+- **零与空窗口：** `[0,0,0]`、`target=0` 的答案为 `3`，相等时不要收缩；`[5]`、`target=4` 移除 `5` 后 `l=r+1`、和为 `0`，答案为 `0`。`n=0` 时循环不执行，也输出 `0`。<br>
+  **Zeros and empty windows:** `[0,0,0]`, `target=0` gives `3`; do not shrink on equality. For `[5]`, `target=4`, removing `5` leaves `l=r+1`, sum `0`, and answer `0`. For `n=0`, the loop does not run and the answer is also `0`.
+- **负上限提前处理：** `target<0` 时非负数组无解。原片段即使移成空窗口，`0>target` 仍成立，可能继续越界访问。完整示例在循环前返回。<br>
+  **Guard a negative bound:** A nonnegative array has no solution for `target<0`. Even after emptying the original snippet's window, `0>target` stays true, risking out-of-bounds access. The complete example returns before the loop.
+- **负数反例：** `[5,-4]`、`target=1` 的正确答案为 `2`，因为全数组和为 `1`。原片段在 `r=0` 已移除 `5`，无法回头，只找到长度 `1`。有负数时不能套本模板，应按具体题目重新选算法。<br>
+  **Negative-value counterexample:** `[5,-4]`, `target=1` has correct answer `2`, since the whole array sums to `1`. The snippet removes `5` at `r=0`, cannot revisit it, and finds only length `1`. With negative elements, do not apply this template; choose an algorithm for the actual problem.
+- **不是“和恰好等于 target 的个数”模板：** `sum<=target` 不代表相等；即使相等，只 `answer++` 也会漏计不同左端，尤其有零时。`[0,0]`、`target=0` 有 `3` 个非空子数组，不是 `2` 个。<br>
+  **Not a template for counting sums exactly equal to target:** `sum<=target` does not imply equality. Even on equality, simply doing `answer++` misses different left endpoints, especially with zeros: `[0,0]`, `target=0` has `3` nonempty subarrays, not `2`.
+- **不是“和至少为 target 的最短长度”模板：** 那类题通常在满足下界时收缩并记录答案，条件与更新时机不同。不要只改一个比较符号就套用。<br>
+  **Not a template for the shortest length with sum at least target:** Such problems typically shrink and record answers while meeting a lower bound. Their conditions and update timing differ; changing one comparison operator is not enough.
+
+**自测：** `[1,2,3]` 配 `target=6`、`[2,2]` 配 `target=1`、`[0,1,0,0]` 配 `target=0`，答案分别是多少？
+
+**Self-check:** What are the answers for `[1,2,3]` with `target=6`, `[2,2]` with `target=1`, and `[0,1,0,0]` with `target=0`?
+
+<details>
+<summary>展开参考答案 / Expand reference answers</summary>
+
+分别是 `3`、`0`、`2`。第三组最长窗口是最后两个零；移除零时和可能不变，但 `l` 仍前进。
+
+The answers are `3`, `0`, and `2`. The third case's longest window is the final two zeros. Removing a zero may leave the sum unchanged, but `l` still advances.
+
+</details>
+
+**一句话复述：非负数组中，右端加入，超限就缩左端，恢复 `sum<=target` 后再按题意更新答案。**
+
+**One-sentence recap: with nonnegative elements, add right, shrink left when over the bound, and update the answer after restoring `sum<=target`.**
 
 [回到阅读导航](#怎么读) · [返回仓库首页](README.md)
 

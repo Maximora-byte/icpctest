@@ -41,6 +41,10 @@ New to the standard library? Start with the [C++ standard library primer](标准
 
 For interval updates, read the [difference-array learning card](标准库入门_Standard_Library_Primer.md#difference-array): start with arrays and indices, accumulation, prefix sums, and interval sums; then derive differences, nonzero initialization, interval addition/subtraction, and final reconstruction, with a complete C++17 template, walkthrough, and self-check exercises.
 
+学习连续子数组，可阅读[滑动窗口学习卡](标准库入门_Standard_Library_Primer.md#sliding-window)：非负数组中右端加入、超限缩左端，附手算、最长非空子数组完整模板、线性复杂度解释与负数反例。
+
+For contiguous subarrays, read the [sliding-window learning card](标准库入门_Standard_Library_Primer.md#sliding-window): add on the right and shrink from the left in a nonnegative array, with a walkthrough, a complete longest-nonempty-subarray template, linear-time reasoning, and a negative-value counterexample.
+
 <a id="练习索引"></a>
 ## 练习索引 / Exercise Index
 
@@ -217,3 +221,4 @@ These names support GitHub rendering, tool discovery, or existing configuration 
 | MIT 许可证 / MIT License | [LICENSE](LICENSE) |
 | 自动标签工作流 / Auto-label workflow | [.github/workflows/auto-label.yml](.github/workflows/auto-label.yml) |
 | 忽略规则 / Ignore rules | [.gitignore](.gitignore) |
+
