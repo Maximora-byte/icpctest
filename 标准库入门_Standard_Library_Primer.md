@@ -62,6 +62,9 @@ This document uses a bilingual filename; the [filename index in the repository R
 15. [滑动窗口学习卡：右边加入，超限就缩左边](#sliding-window)<br>[Sliding-window learning card: add right, shrink left](#sliding-window)
    - [完整 C++17 示例：和不超过上限的最长非空子数组](#sliding-window-template)<br>[Complete C++17 example: longest nonempty subarray within a sum bound](#sliding-window-template)
 
+16. [贪心学习卡：优先选择最早结束的活动](#greedy-interval-scheduling)<br>[Greedy learning card: choose the earliest finish](#greedy-interval-scheduling)
+   - [完整 C++17 示例：最多能参加多少场](#greedy-interval-template)<br>[Complete C++17 example: maximum activity count](#greedy-interval-template)
+
 <a id="start"></a>
 <a id="0-先学会运行一个示例"></a>
 ## 0. 先学会运行一个示例 / 0. Learn to Run an Example First
@@ -3934,6 +3937,191 @@ The answers are `3`, `0`, and `2`. The third case's longest window is the final 
 **一句话复述：非负数组中，右端加入，超限就缩左端，恢复 `sum<=target` 后再按题意更新答案。**
 
 **One-sentence recap: with nonnegative elements, add right, shrink left when over the bound, and update the answer after restoring `sum<=target`.**
+
+[回到阅读导航](#怎么读) · [返回仓库首页](README.md)
+
+[Back to the Reading Guide](#怎么读) · [Back to the Repository Home](README.md)
+
+<a id="greedy-interval-scheduling"></a>
+## 16. 贪心学习卡：优先选择最早结束的活动 / 16. Greedy Learning Card: Choose the Earliest Finish
+
+目标是从若干活动中选出**数量最多、互不冲突**的一组，每个活动只选一次。这里默认活动具有正时长 `start < end`，允许上一场结束时立刻参加下一场；没有权重，也没有必须参加的指定活动。贪心是算法策略，不是标准库函数。
+
+The goal is to select the **largest number of mutually compatible activities**, each at most once. Assume positive durations (`start < end`) and allow the next activity to start exactly when the previous one ends. There are no weights or mandatory activities. Greedy is an algorithmic strategy, not a standard-library function.
+
+### 16.1 原片段：每轮选当前可参加且最早结束的活动 / 16.1 Original Snippet: Take the Earliest-finishing Compatible Activity
+
+**片段（保留你的写法） / Snippet (your original pattern):**
+
+```cpp
+sort(games.begin(), games.end());
+
+int lastEnd = 0;
+int ans = 0;
+for (auto game : games) {
+    int end = game.first;
+    int start = game.second;
+
+    if (start >= lastEnd) {
+        ans++;
+        lastEnd = end;
+    }
+}
+```
+
+这段代码需要放进完整程序，且 `games` 必须存成 `pair<int, int>{end, start}`。原片段使用 `lastEnd=0`，默认所有合法活动的开始时间都不小于 0；否则会漏掉负时间活动。完整示例见下方。
+
+Place this snippet inside a complete program and store each item as `pair<int, int>{end, start}`. Its `lastEnd=0` assumes all valid start times are nonnegative; otherwise it can miss activities with negative times. See the complete example below.
+
+| 写法 / Expression | 含义 / Meaning |
+| --- | --- |
+| `game.first` | 结束时间 `end`，是排序的第一关键字<br>Finish time `end`, the primary sort key |
+| `game.second` | 开始时间 `start`，仅在结束时间相同时参与排序<br>Start time `start`, used to break finish-time ties |
+| `lastEnd` | 最后一个已选择活动的结束时间<br>Finish time of the most recently selected activity |
+| `ans` | 已选择活动的数量，不是时长之和<br>Number of selected activities, not their total duration |
+| `start >= lastEnd` | 当前活动与已选择的最后一场不冲突<br>The current activity is compatible with the last selected one |
+
+`pair` 默认按字典序升序排列：先比 `first`，相同再比 `second`。所以 `sort(games.begin(), games.end())` 在这里就是**结束时间升序**。如果存成 `{start,end}` 却仍用默认排序，就变成按开始时间排序，不能保证选得最多。结束时间相同且都可选时，选择哪一个都不会影响后续可用时间。
+
+Pairs sort lexicographically: first by `first`, then by `second` for ties. Thus the default `sort` here orders by **increasing finish time**. Storing `{start,end}` instead would sort by start time, which does not guarantee the maximum count. If tied activities are both compatible, either choice leaves the same time for subsequent activities.
+
+`auto game` 表示复制当前这一对值；这里不修改 `games`。也可以写 `const auto& game` 只读访问，避免复制。只有选中时才更新 `lastEnd`，跳过活动时不能更新它。
+
+`auto game` copies the current pair; this loop does not modify `games`. You may use `const auto& game` for read-only access without copying. Update `lastEnd` only when selecting an activity, never when skipping one.
+
+### 16.2 手算：排序后只看能否接上 / 16.2 Walkthrough: Sort, Then Check Compatibility
+
+输入按 `start end` 给出五场：`(0,3), (1,2), (2,4), (3,5), (4,6)`。存储时交换为 `{end,start}`，排序后按下面顺序处理。
+
+Read five activities as `start end`: `(0,3), (1,2), (2,4), (3,5), (4,6)`. Store them as `{end,start}`; sorting produces the processing order below.
+
+| 活动 / Activity (`start,end`) | 判断 / Check | 选择 / Select? | 更新后的 / Updated `lastEnd` | `ans` |
+| --- | --- | --- | --- | --- |
+| `(1,2)` | `1 >= 0` | 是 / Yes | 2 | 1 |
+| `(0,3)` | `0 >= 2` 不成立 / false | 否 / No | 2 | 1 |
+| `(2,4)` | `2 >= 2` | 是 / Yes | 4 | 2 |
+| `(3,5)` | `3 >= 4` 不成立 / false | 否 / No | 4 | 2 |
+| `(4,6)` | `4 >= 4` | 是 / Yes | 6 | 3 |
+
+### 16.3 为什么正确：交换论证 / 16.3 Why It Works: Exchange Argument
+
+1. 在当前可选的活动中，设贪心选的是结束最早的 `g`，某个最优方案的第一场是 `o`。因为 `g` 最早结束，`end(g) <= end(o)`。<br>
+   Among currently compatible activities, let greedy choose the earliest-finishing `g`, while an optimal schedule begins with `o`. Then `end(g) <= end(o)`.
+2. 把最优方案的第一场 `o` 换成 `g`。原来后续活动都在 `end(o)` 之后或恰好此时开始，因此也能接在 `g` 后；数量不减少。正时长保证 `g` 不会同时出现在这个方案的后续位置。<br>
+   Replace `o` by `g`. All later activities start at or after `end(o)`, so they also fit after `g`; the count is unchanged. Positive durations ensure `g` cannot also occur later in that schedule.
+3. 因而一定存在以贪心选择开头的最优方案。固定这一场后，对剩下兼容的活动重复同样的论证，直到没有可选活动。<br>
+   Hence an optimal schedule exists with the greedy first choice. Fix it and repeat the same argument on the remaining compatible activities until none remain.
+
+这不是“看起来最优就行”，而是证明每次选择都不会减少最终能选的最大数量。排序 `O(n log n)`，扫描 `O(n)`，总体 `O(n log n)`；保存活动占 `O(n)` 空间，扫描只使用常数个变量。
+
+This is not merely a plausible local choice: the proof shows that each choice preserves the maximum achievable count. Sorting costs `O(n log n)`, scanning costs `O(n)`, for `O(n log n)` overall. Activity storage uses `O(n)` space; the scan uses only a constant number of variables.
+
+<a id="greedy-interval-template"></a>
+### 16.4 完整 C++17 示例 / 16.4 Complete C++17 Example
+
+**自拟输入约定：** 第一行 `n`，随后 n 行 `start end`，满足 `0<=n<=200000`、`0<=start<end<=1000000000`，假设输入完整且合法。输出最多能参加的活动数量。没有给定原题编号，因此这只是教学示例，不声称通过任何在线评测。
+
+**Self-authored input contract:** Read `n`, followed by n lines of `start end`, with `0<=n<=200000` and `0<=start<end<=1000000000`. Assume complete, valid input. Output the maximum number of activities. No original problem ID was supplied, so this is a teaching example, not an online-judge acceptance claim.
+
+```cpp
+#include <algorithm>
+#include <iostream>
+#include <utility>
+#include <vector>
+using namespace std;
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+
+    int n;
+    if (!(cin >> n)) {
+        return 0;
+    }
+    vector<pair<int, int>> games;
+    games.reserve(n);
+    for (int i = 0; i < n; i++) {
+        int start, end;
+        cin >> start >> end;
+        games.push_back({end, start});  // 结束在前 / Finish first.
+    }
+
+    sort(games.begin(), games.end());
+    int lastEnd = 0;
+    int ans = 0;
+    for (auto game : games) {
+        int end = game.first;
+        int start = game.second;
+        if (start >= lastEnd) {
+            ans++;
+            lastEnd = end;
+        }
+    }
+    cout << ans << '\n';
+    return 0;
+}
+```
+
+保存为 `贪心区间选择_greedy_interval_scheduling.cpp`，单独编译运行。Windows 可将输出文件名改成 `.exe`。
+
+Save as `贪心区间选择_greedy_interval_scheduling.cpp` and compile independently. On Windows, use an `.exe` output filename.
+
+```bash
+g++ -std=c++17 -Wall -Wextra -Wpedantic 贪心区间选择_greedy_interval_scheduling.cpp -o greedy_interval_demo
+./greedy_interval_demo
+```
+
+**样例输入 / Sample input:**
+
+```text
+5
+0 3
+1 2
+2 4
+3 5
+4 6
+```
+
+**样例输出 / Sample output:**
+
+```text
+3
+```
+
+### 16.5 初始值、端点与适用边界 / 16.5 Initialization, Endpoints, and Scope
+
+- **初始值不是固定公式：** `lastEnd=0` 适用于上面的非负时间约定。若允许负时间，例如 `(-3,-1),(-1,2)`，原片段会漏选。可增加 `bool hasChosen=false;`，条件写成 `!hasChosen || start>=lastEnd`，选中时置 `hasChosen=true`；这样第一场不受哨兵时间限制。若有实际最早可参加时刻 `T`，则应使用 `lastEnd=T`，不能无条件接纳第一场。<br>
+  **Initialization depends on the problem:** `lastEnd=0` suits the nonnegative contract above. With negative times such as `(-3,-1),(-1,2)`, it misses activities. Add `bool hasChosen=false;`, use `!hasChosen || start>=lastEnd`, and set `hasChosen=true` when selecting; the first choice then needs no sentinel time. If a real earliest available time `T` exists, use `lastEnd=T` instead of accepting the first activity unconditionally.
+- **能否共享端点看题意：** 允许结束后立即开始（常按半开区间理解）用 `>=`；若闭区间共享端点也算冲突，则用 `>`。严格条件下，无初始时间限制时也应用 `hasChosen` 处理第一场，避免 `lastEnd=0` 错误排除从 0 开始的活动。<br>
+  **Endpoint rules come from the problem:** Use `>=` when back-to-back activities are allowed (often modeled as half-open intervals); use `>` when closed intervals sharing an endpoint conflict. With the strict condition and no initial time restriction, also use `hasChosen` for the first activity, so `lastEnd=0` does not wrongly exclude a start at zero.
+- **不按最早开始或最短时长排序：** `(0,10),(1,2),(2,3)` 中最早开始只能选 1 场，最早结束能选 2 场；`(0,3),(3,6),(2,4)` 中最短活动 `(2,4)` 与另外两场都冲突，先选它也只能得到 1 场。<br>
+  **Do not sort by earliest start or shortest duration:** For `(0,10),(1,2),(2,3)`, earliest start yields one activity instead of two. For `(0,3),(3,6),(2,4)`, the shortest activity `(2,4)` conflicts with both others, again yielding only one.
+- **只最大化数量，不最大化收益：** 若每场有分值、目标是总收益最大，结束最早不一定最优，通常需要带权区间调度的动态规划。本节也不直接处理多会场、必须参加指定活动或零时长活动等变体；先重新核对题意与证明。<br>
+  **Maximize count, not reward:** With per-activity values and a maximum-total-reward objective, earliest finish need not be optimal; weighted interval scheduling typically uses dynamic programming. This card also does not directly cover multiple rooms, mandatory activities, or zero-duration activities; recheck their rules and proof first.
+
+### 16.6 自测与检查 / 16.6 Self-check and Checklist
+
+分别求以下活动的最大数量，仍允许首尾相接：空集合；`(0,2),(2,4)`；`(0,5),(1,4),(2,3)`；`(0,2),(0,2),(2,3)`。
+
+Find the maximum count when back-to-back activities are allowed: no activities; `(0,2),(2,4)`; `(0,5),(1,4),(2,3)`; `(0,2),(0,2),(2,3)`.
+
+<details>
+<summary>展开参考答案 / Expand reference answers</summary>
+
+答案依次为 `0,2,1,2`。重复的正时长活动互相冲突，不能重复参加。若第二组不允许共享端点，答案变为 `1`。
+
+The answers are `0,2,1,2`. Duplicate positive-duration activities conflict and cannot both be attended. If shared endpoints are forbidden, the second answer becomes `1`.
+
+</details>
+
+- [ ] 输入读 `start end`，存储放 `{end,start}`，读回时不要反过来。<br>Read `start end`, store `{end,start}`, and unpack consistently.
+- [ ] 核对时间范围、正时长假设和 `lastEnd` 初值，按题意选择 `>=` 或 `>`。<br>Check time ranges, positive durations, initialization, and whether `>=` or `>` matches the problem.
+- [ ] 只在选中时增加数量并更新结束时间，先排序再扫描。<br>Increment the count and update the finish time only on selection; sort before scanning.
+- [ ] 编译并检查空输入集合、全部冲突、首尾相接、相同结束时间和重复活动。<br>Compile and test an empty set, all-conflicting activities, touching endpoints, equal finish times, and duplicates.
+
+**一句话复述：按结束时间升序，能接上就选，让剩下的时间尽可能早地空出来。**
+
+**One-sentence recap: sort by finish time and take every compatible activity, freeing the remaining time as early as possible.**
 
 [回到阅读导航](#怎么读) · [返回仓库首页](README.md)
 
