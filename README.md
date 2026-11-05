@@ -45,6 +45,10 @@ For interval updates, read the [difference-array learning card](标准库入门_
 
 For contiguous subarrays, read the [sliding-window learning card](标准库入门_Standard_Library_Primer.md#sliding-window): add on the right and shrink from the left in a nonnegative array, with a walkthrough, a complete longest-nonempty-subarray template, linear-time reasoning, and a negative-value counterexample.
 
+学习选择互不冲突的活动，可阅读[贪心区间选择学习卡](标准库入门_Standard_Library_Primer.md#greedy-interval-scheduling)：解释 `pair` 的结束时间排序、逐行扫描、交换论证、初始值与端点条件，附完整 C++17 示例和反例。
+
+For selecting compatible activities, read the [greedy interval-scheduling learning card](标准库入门_Standard_Library_Primer.md#greedy-interval-scheduling): finish-time sorting with `pair`, a line-by-line scan, an exchange proof, initialization and endpoint rules, plus a complete C++17 example and counterexamples.
+
 <a id="练习索引"></a>
 ## 练习索引 / Exercise Index
 
